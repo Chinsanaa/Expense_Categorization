@@ -92,13 +92,13 @@ def tokenize(text: str) -> list:
     return tokens
 
 
-def build_vectorizer(texts: list, max_features: int = 500) -> TfidfVectorizer:
+def build_vectorizer(texts: list, max_features: int = 3000) -> TfidfVectorizer:
     """
     Fit TF-IDF vectorizer on training texts.
 
     Args:
         texts: list of strings to fit on
-        max_features: max number of features to extract
+        max_features: max number of features to extract (default 3000 for better coverage)
 
     Returns:
         Fitted TfidfVectorizer instance
@@ -106,6 +106,7 @@ def build_vectorizer(texts: list, max_features: int = 500) -> TfidfVectorizer:
     vectorizer = TfidfVectorizer(
         tokenizer=tokenize,
         max_features=max_features,
+        ngram_range=(1, 2),  # Add bigrams: capture compound merchant names (便利店, 外卖平台)
         min_df=2,  # Ignore tokens that appear in < 2 documents
         max_df=0.8,  # Ignore tokens that appear in > 80% of documents
         lowercase=False  # We handle case in tokenize()

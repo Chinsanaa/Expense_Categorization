@@ -36,7 +36,7 @@ def load_data():
 def build_feature_matrix(df):
     """Build feature matrix from cleaned text."""
     print(f"\n1. Building vectorizer from {len(df)} texts...")
-    vectorizer = build_vectorizer(df['text'].tolist(), max_features=500)
+    vectorizer = build_vectorizer(df['text'].tolist())  # Uses default max_features=3000
     X = vectorize(df['text'].tolist(), vectorizer)
     y = df['category']
     return X, y, vectorizer
@@ -81,8 +81,14 @@ def stratified_cv_evaluation(X, y):
         X_train, X_test = X[train_idx], X[test_idx]
         y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 
-        # Train
-        clf = LogisticRegression(max_iter=1000, random_state=42, solver='lbfgs')
+        # Train — match production hyperparameters
+        clf = LogisticRegression(
+            max_iter=1000,
+            random_state=42,
+            solver='lbfgs',
+            class_weight='balanced',  # Handle class imbalance
+            C=10  # Reduced regularization
+        )
         clf.fit(X_train, y_train)
 
         # Predict

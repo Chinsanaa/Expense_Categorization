@@ -22,8 +22,8 @@ def retrain_model():
     labeled_path = 'data/labeled/labeled_transactions.csv'
     df = pd.read_csv(labeled_path)
 
-    # Filter to only labeled rows with non-null categories
-    df_labeled = df[df['category'].notna()].copy()
+    # Filter to only explicitly labeled rows (labeled==True) to match train.py
+    df_labeled = df[df['labeled'] == True].copy()
     print(f"\n1. Loaded {len(df_labeled)} labeled transactions")
     print(f"   Category distribution:")
     for cat, count in df_labeled['category'].value_counts().sort_values(ascending=False).items():
@@ -36,6 +36,14 @@ def retrain_model():
         lambda row: clean_text(row['merchant'], row['description']),
         axis=1
     )
+
+    # Filter out categories with fewer than 2 samples (StratifiedKFold requirement)
+    min_class_count = df_labeled['category'].value_counts().min()
+    if min_class_count < 2:
+        print(f"\n   WARNING: Found categories with < 2 samples. Filtering them out.")
+        classes_to_keep = df_labeled['category'].value_counts()[df_labeled['category'].value_counts() >= 2].index
+        df_labeled = df_labeled[df_labeled['category'].isin(classes_to_keep)].copy()
+        print(f"   Kept {len(classes_to_keep)} categories, now training on {len(df_labeled)} samples")
 
     vectorizer = build_vectorizer(df_labeled['text'].tolist())
     X = vectorize(df_labeled['text'].tolist(), vectorizer)
