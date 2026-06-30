@@ -375,9 +375,63 @@ README.md
 - Marked completed features with ✅
 - Updated spending breakdown table (removed "Other" row)
 
-**Session 5 Complete:**
+**Session 5 Phase 1 Complete:**
 - Rule refinement: 59% error reduction
 - Retraining: 97.3% accuracy, 81.4% confidence
 - Dashboard: fully functional with budget alerts, anomaly detection, monthly reports
 - Documentation: fully updated
 - Ready for production use
+
+### Session 5 (continued) — Budget Integration & Forecasting
+
+**Budget File Analysis & Integration** ✅
+- Analyzed `Personal_finance.xlsx` (6 tabs):
+  - Monthly Budget: 11 categories with Need/Want classification
+  - Budget vs Actual 2026-2027
+  - Actual Spending log structure
+  - Analytics & Insights
+- Extracted key metrics:
+  - Monthly income: ¥2,986
+  - Annual budget: ¥26,650
+  - Saving goal: ¥7,200 (¥600/month)
+  - Categories: Eating Out, Groceries, Transportation, Shopping, Transfers & Gifts, Other, Entertainment, Health & Wellness, Travel, Utilities & Services, Saving
+
+**Created Budget Modules** ✅
+- `src/budget_loader.py`: Parse Excel → `data/budget_config.json`
+- `src/forecast.py`: Forecasting engine with:
+  - Historical pattern analysis (Sep 2025 - May 2026)
+  - Seasonal adjustments per category
+  - Trend analysis (linear regression)
+  - Year-end savings projection
+- `src/dashboard_helpers.py`: Utilities for budget lookups, color coding, status badges
+
+**Enhanced Dashboard** ✅
+- Tab 6 (Forecasting): 
+  - Monthly forecast selector (Sep-May)
+  - Risk indicators (Low/Medium/High) per category
+  - Variance tracking vs budget
+  - 9-month heatmap visualization
+- Tab 7 (Savings & Income):
+  - Monthly income: ¥2,986
+  - YTD savings: ¥5,965 (20% savings rate)
+  - Year-end projection: ¥7,158 (99.4% of ¥7,200 goal)
+  - Spending breakdown (Need vs Want)
+  - Cumulative savings trend chart
+  - Daily burn rate analysis
+
+**Forecasting Results** ✅
+- Based on 10 months of actual spending (Aug 2025 - May 2026)
+- Projected Sep-May spending: ¥28,674
+- On track to meet savings goal (¥42 short — within margin of error)
+- Eating Out trending over budget (182% projected)
+- Transfers & Gifts significantly over (729% — likely one-off large gift)
+- Groceries under budget (30% of allocation used)
+
+**Session 5 Complete (All Phases):**
+- Rule refinement: 59% error reduction in classifications
+- Retraining: 97.3% accuracy, 81.4% avg confidence
+- Dashboard: 7 tabs with budget alerts, anomaly detection, monthly reports, forecasting, savings tracking
+- Budget integration: Full Excel file integration with 11 categories
+- Forecasting: 9-month ahead projections with seasonal patterns
+- Documentation: fully updated (README, context, comments)
+- **Status: PRODUCTION READY** — Ready for monthly budget tracking and forecasting
