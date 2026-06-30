@@ -587,43 +587,18 @@ README.md
 
 **Root Cause Analysis (6 issues identified and fixed):**
 
-1. **"???" Category Was Training Garbage**
-   - 12 rows labeled as "???" (unknown) instead of real categories
-   - `retrain.py` included them as a 9th category, wasting model capacity
-   - Model predicted 31 transactions as meaningless "???" with high confidence
-   - **Fix:** Relabeled all 12 rows → Transportation (3) / Eating Out (5) / Shopping (3)
-
-2. **Travel Category Had Only 2 Samples**
-   - Training data: Pudong Airport (¥53) + Spring Airlines baggage (¥300)
-   - Model wildly misclassified: Domino's, KMart, noodle shops → Travel
-   - Travel predictions averaged 66.4% confidence (well below target)
-   - **Fix:** Relabeled both Travel rows as "Other" (genuinely miscellaneous)
-
-3. **121 Unlabeled Rows Were Wasted**
-   - Obvious transactions had no category: Domino's, Korean restaurant, health clinic, etc.
-   - These improved model quality by ~4% when labeled
-   - **Fix:** Labeled 74 obvious rows, focused on high-frequency merchants (especially 上海蕤盛工贸 vending machines, 10 restaurants)
-
-4. **Feature Space Was Too Constrained**
-   - `max_features=500` with only 275 features extracted after pruning
-   - `ngram_range=(1,1)` — no bigrams. Missed compound merchant names (便利店, 外卖平台)
-   - **Fix:** Increased to 3000 features + bigrams (1,2) → **639 features extracted**
-
-5. **eval.py Used Wrong Hyperparameters**
-   - CV evaluation used `LogisticRegression()` without `class_weight='balanced', C=10`
-   - CV scores didn't reflect production model
-   - **Fix:** Updated eval.py to match exact production hyperparameters
-
-6. **retrain.py Data Filter Inconsistency**
-   - `retrain.py` used `category.notna()` (includes ??? rows)
-   - `train.py` used `labeled==True` (excludes them)
-   - **Fix:** Aligned retrain.py to use `labeled==True` filter
+1. **"???" Category Was Training Garbage** — 12 rows labeled as "???" included as 9th class, wasting model capacity. Fixed by relabeling to real categories.
+2. **Travel Category Had Only 2 Samples** — Pudong Airport + Spring Airlines only. Model misclassified Domino's, KMart, noodles → Travel. Fixed by relabeling to "Other".
+3. **121 Unlabeled Rows Wasted** — Obvious transactions (Domino's, restaurants, clinics) had no category. Fixed by labeling 74 rows focused on merchants.
+4. **Feature Space Too Constrained** — max_features=500 with only 275 extracted, no bigrams. Fixed: 3000 max with bigrams → **639 features**.
+5. **eval.py Used Wrong Hyperparameters** — CV used `LogisticRegression()` without class_weight='balanced', C=10. Fixed to match production.
+6. **retrain.py Data Filter Inconsistency** — Used `category.notna()` (includes ???) vs train.py's `labeled==True`. Aligned to `labeled==True`.
 
 **Data Improvements:**
-- **Relabeled 12 ??? rows** → real categories
-- **Relabeled 2 Travel rows** → Other
-- **Labeled 74 NaN rows** → mostly vending machines (58→Groceries), restaurants (7→Eating Out), misc (9→Other)
-- **Training set:** 776 → 850 labeled samples with high-confidence labels
+- Relabeled 12 ??? rows → Transportation/Eating Out/Shopping
+- Relabeled 2 Travel rows → Other
+- Labeled 74 NaN rows → vending machines (58→Groceries), restaurants (7→Eating Out), misc (9→Other)
+- **Training set:** 776 → 850 labeled samples
 
 **Performance Before → After:**
 
@@ -633,48 +608,58 @@ README.md
 | **F1-weighted** | 0.960 | 0.964 | +0.4% |
 | **Accuracy** | 95.5% | 96.3% | +0.8% |
 | **Feature Space** | 275 | 639 | +132% |
-| **Categories 80%+** | 5/8 | 6/7 | ✓ |
 
-**Per-Category Confidence (excluding Travel):**
+**Per-Category Confidence:**
+- Eating Out: 91.1% → 93.3% ✅
+- Groceries: 94.0% → 95.2% ✅
+- Transportation: 95.4% → 96.5% ✅
+- Shopping: 92.1% → 94.0% ✅
+- Transfers & Gifts: 97.1% → 97.7% ✅
+- Utilities & Services: 98.3% → 98.9% ✅
+- Other: 71.4% → 66.9% (genuinely ambiguous, honest signal) ⚠️
+- Travel: Eliminated ✓
 
-| Category | Before | After | Target | Status |
-|----------|--------|-------|--------|--------|
-| Eating Out | 91.1% | 93.3% | 80%+ | ✅ |
-| Groceries | 94.0% | 95.2% | 80%+ | ✅ |
-| Transportation | 95.4% | 96.5% | 80%+ | ✅ |
-| Shopping | 92.1% | 94.0% | 80%+ | ✅ |
-| Transfers & Gifts | 97.1% | 97.7% | 80%+ | ✅ |
-| Utilities & Services | 98.3% | 98.9% | 80%+ | ✅ |
-| Other | 71.4% | 66.9% | 80%+ | ⚠️ |
-| Travel | 66.4% | **ELIMINATED** | — | ✓ |
-
-**Why "Other" Remains at 66.9% (Not a Failure):**
-- Contains genuinely ambiguous transactions: health clinic (¥524), amusement arcade (¥16.9), government payments, event fees
-- 66.9% confidence is an **honest uncertainty signal**, not a model failure
-- Better than 99% false confidence on garbage data
-- **Intended use:** Flag with <80% threshold for human review; collect more examples over time
+**Key Insight:** "Other" at 66.9% is not a failure—it contains ambiguous transactions (health clinic, government fees, etc.). Low confidence is an appropriate uncertainty signal for inherently fuzzy items.
 
 **Files Changed:**
 - `src/fix_labels.py` (NEW) — one-shot script to fix training data
-- `data/labeled/labeled_transactions.csv` — 850 labeled samples, 0 ??? or Travel rows
+- `data/labeled/labeled_transactions.csv` — 850 labeled samples, no ??? or Travel
 - `src/segment.py` — max_features=3000, ngram_range=(1,2)
-- `src/eval.py` — added class_weight='balanced', C=10
-- `src/retrain.py` — fixed data filter, added min-samples guard
-- `AUDIT_SESSION_8B.md` (NEW) — full audit findings and methodology
-
-**Production Readiness Assessment:**
-- ✅ 6 of 7 categories achieving 80%+ avg confidence target
-- ✅ F1-macro improved 13.6% (now 0.869, fairness metric)
-- ✅ Honest uncertainty signals for ambiguous items
-- ✅ No garbage categories (??? and Travel eliminated)
-- ✅ Rich feature space (639 features with bigrams)
-- ✅ Validated via proper 5-fold stratified cross-validation (not single train/test split)
-- ✅ All scripts use consistent hyperparameters
-- ✅ Confidence thresholds properly computed
+- `src/eval.py` — fixed hyperparameters
+- `src/retrain.py` — fixed data filter, min-samples guard
 
 **Session 8B Complete:**
-- Full audit identified and fixed 6 root causes of inaccuracy
-- Model fairness (F1-macro) improved +13.6%
-- 6/7 categories now meeting 80%+ confidence target
-- Model is honest about uncertainty (Other at 66.9% is appropriate for ambiguous transactions)
-- **Status:** PRODUCTION READY — Ready for deployment with confidence thresholds for manual review
+- Full audit identified and fixed 6 root causes
+- F1-macro improved +13.6% (0.765 → 0.869)
+- 6 of 7 categories at 80%+ confidence
+- Model is honest about uncertainty
+- **Status:** PRODUCTION READY with confidence thresholds
+
+---
+
+## Supporting Documentation (Consolidated)
+
+All detailed documentation has been integrated below. Original files served specific purposes:
+
+### Technical & Architecture
+- **DATA_SETUP.md**: Folder structure, CSV schemas, normalized pipeline formats, encoding decisions (Alipay CSV vs WeChat Excel)
+- **docs/AUDIT_REPORT.md**: Critical ML findings — 99.1% accuracy was fake (real: 95.2%), 3 categories had 0% recall, root causes identified, class-weight fix applied
+- **docs/OPTIMIZATION_SUMMARY.md**: Complete test results — class weights (+9-12% F1, no tradeoff), feature engineering rejected (-1.6% F1), ensemble rejected (inconsistent gains)
+- **AUDIT_SESSION_8B.md**: Session 8B full audit with 6 root causes fixed, F1-macro +13.6%, per-category confidence improvements
+
+### User Guides & Workflows
+- **RETRAINING_WORKFLOW.md**: Step-by-step monthly improvement workflow — find candidates, label, retrain, classify, monitor
+- **DATA_COLLECTION_GUIDE.md**: Priority order for labeling (Travel/Other critical, Shopping/Transfers secondary), category-specific guidance, quality checks
+- **QUICK_START.md**: Simple reference for running pipeline and monthly workflow, command reference table, troubleshooting
+
+### Status & Decisions
+- **START_HERE.md**: TL;DR of audit findings, what was fixed (class weights, tuning bug, feature engineering rejection), remaining work (Travel/Other labeling)
+- **CHECKLIST_COMPLETE.md**: Session 8 completion summary — confidence thresholds added, candidates finder built, automated retrain pipeline complete
+- **IMPROVEMENTS_SUMMARY.md**: Session 8B repo cleanup — README updated, 16 temp files archived, 9 experimental scripts archived, .gitignore enhanced, QUICK_START.md created
+
+### Why Consolidation Was Needed
+- Original README.md: 275 lines, comprehensive but dated (97.3% accuracy outdated)
+- Original context.md: 681 lines, complete session history
+- Supporting docs: 5-7 specialized files, each with overlapping information about audits, workflows, decisions
+- **Result:** 8+ files with repetition, confusing prioritization for new readers
+- **Solution:** Integrate key findings into context.md session log, keep README.md for quick reference, delete intermediate docs
