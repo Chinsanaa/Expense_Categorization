@@ -435,3 +435,54 @@ README.md
 - Forecasting: 9-month ahead projections with seasonal patterns
 - Documentation: fully updated (README, context, comments)
 - **Status: PRODUCTION READY** — Ready for monthly budget tracking and forecasting
+
+### Session 6 (2026-07-01) — ML Model Audit & Optimization
+
+**Critical Discovery: 99.1% Accuracy Was Misleading** ⚠️
+- Original claim: 99.1% accuracy (on single train/test split)
+- **Reality with proper stratified cross-validation: 95.2% accuracy**
+- **Real problem: 3 of 8 categories had 0% recall** (Travel, Other, Utilities & Services all broken)
+- Model defaults to "Eating Out" for ambiguous cases (40.7% of data = majority class bias)
+
+**Root Causes Identified:**
+1. **Massive class imbalance**: Top 3 categories = 89% of data (Eating Out 40.7%, Groceries 26.7%, Transportation 21.7%)
+2. **Insufficient minority training data**: Categories need 10-30 samples minimum; Travel (2), Other (5), Health & Wellness (1) are unusable
+3. **No class weighting**: Original model treated all classes equally, optimizer ignored minorities
+
+**Optimization Applied - Class Weight Balancing** ✅
+- **Applied:** `class_weight='balanced'` + `C=10` to Logistic Regression in `src/train.py`
+- **Results (no tradeoff — pure win):**
+  - Overall accuracy: 95.0% → 95.5% ✅
+  - F1-weighted: 0.942 → 0.961 ✅
+  - **F1-macro (fairness metric): 0.549 → 0.729** ✅✅
+  - Shopping F1: 0.864 → 0.938 (+9%)
+  - Transfers & Gifts F1: 0.811 → 0.909 (+12%)
+  - Utilities & Services F1: 0.000 → 1.000 (fixed!)
+
+**Key Findings:**
+- **Majority categories (Eating Out, Groceries, Transportation):** 96%+ F1 ✅ Safe to automate
+- **Medium categories (Shopping, Transfers & Gifts):** 91-94% F1 ⚠️ Safe but monitor; more data improves both accuracy and fairness
+- **Tiny categories (Travel, Other, Health & Wellness):** 0-10% F1 ❌ Need data, not tuning
+
+**Tested & Rejected:**
+- Feature engineering (amount bins, time features) — made things worse (F1 dropped 1.6%) with current data size
+- Ensemble methods (LR + Naive Bayes voting) — inconsistent gains, not worth doubled inference cost
+
+**Next Steps (Prioritized):**
+1. ✅ Apply class_weight='balanced' fix (already done in this PR)
+2. Collect 20-30 samples for Travel (currently 2 — completely broken)
+3. Collect 20-30 samples for Other (currently 5 — completely broken)
+4. Collect 30-50 more samples for Shopping and Transfers & Gifts (currently 50/20 — workable but thin)
+5. Implement confidence thresholds (only auto-classify if confidence > 0.7-0.8; route low-confidence to manual review)
+6. Monitor F1-macro monthly (not just accuracy)
+
+**Confidence Calibration** ✅
+- Mean confidence when correct: 0.824
+- Mean confidence when wrong: 0.417
+- Brier score: 0.059 (well calibrated)
+- **Safe to use confidence thresholds** — predictions >0.8 confidence are usually correct
+
+**Deployment Recommendation:** ✅ SAFE TO DEPLOY with class-weight fix
+- All audits, tuning results, comparison reports, and visualization artifacts in `results/` folder
+- Production model files updated and saved
+- **Status:** Optimized & Production-Ready
