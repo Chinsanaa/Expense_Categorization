@@ -6,7 +6,7 @@ import sys
 from datetime import datetime
 sys.path.insert(0, str(Path.cwd()))
 
-from segment import clean_text, vectorize, build_vectorizer
+from segment import clean_text, vectorize, build_vectorizer, LR_HYPERPARAMS
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import accuracy_score, f1_score, classification_report, confusion_matrix
@@ -53,13 +53,7 @@ def retrain_model():
 
     # Retrain with stratified cross-validation
     print(f"\n3. Training Logistic Regression with stratified CV...")
-    clf = LogisticRegression(
-        max_iter=1000,
-        solver='lbfgs',
-        class_weight='balanced',
-        C=10,
-        random_state=42
-    )
+    clf = LogisticRegression(**LR_HYPERPARAMS)
 
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     cv_scores = []
@@ -70,13 +64,7 @@ def retrain_model():
         X_train, X_test = X[train_idx], X[test_idx]
         y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 
-        clf_fold = LogisticRegression(
-            max_iter=1000,
-            solver='lbfgs',
-            class_weight='balanced',
-            C=10,
-            random_state=42
-        )
+        clf_fold = LogisticRegression(**LR_HYPERPARAMS)
         clf_fold.fit(X_train, y_train)
 
         acc = accuracy_score(y_test, clf_fold.predict(X_test))

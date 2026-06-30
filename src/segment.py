@@ -3,8 +3,20 @@ import re
 import jieba
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
 import joblib
 from pathlib import Path
+
+# Production hyperparameters (tuned via grid search in previous audit)
+# class_weight='balanced' addresses 40:1 class imbalance (Eating Out vs Utilities)
+# C=10 reduces regularization to fit harder on small categories (Shopping, Transfers & Gifts)
+LR_HYPERPARAMS = {
+    'max_iter': 1000,
+    'solver': 'lbfgs',
+    'class_weight': 'balanced',
+    'C': 10,
+    'random_state': 42
+}
 
 
 # ============================================================================

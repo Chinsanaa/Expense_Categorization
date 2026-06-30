@@ -19,7 +19,7 @@ import seaborn as sns
 import joblib
 
 sys.path.insert(0, str(Path(__file__).parent))
-from segment import vectorize, build_vectorizer, clean_text
+from segment import vectorize, build_vectorizer, clean_text, LR_HYPERPARAMS
 
 
 def load_data():
@@ -81,14 +81,8 @@ def stratified_cv_evaluation(X, y):
         X_train, X_test = X[train_idx], X[test_idx]
         y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 
-        # Train — match production hyperparameters
-        clf = LogisticRegression(
-            max_iter=1000,
-            random_state=42,
-            solver='lbfgs',
-            class_weight='balanced',  # Handle class imbalance
-            C=10  # Reduced regularization
-        )
+        # Train — use production hyperparameters
+        clf = LogisticRegression(**LR_HYPERPARAMS)
         clf.fit(X_train, y_train)
 
         # Predict

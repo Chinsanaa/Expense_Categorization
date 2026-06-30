@@ -7,12 +7,22 @@ sys.stdout.reconfigure(encoding='utf-8')
 def fix_labels():
     """Fix labeled_transactions.csv by relabeling ??? and Travel rows, and ~30 NaN rows."""
 
-    # Load data
-    df = pd.read_csv('data/labeled/labeled_transactions.csv', encoding='utf-8')
-    print(f"Loaded {len(df)} rows")
-    print(f"Before: category value counts:")
-    print(df['category'].value_counts(dropna=False).to_string())
-    print()
+    # Create backup before modifying
+    input_path = 'data/labeled/labeled_transactions.csv'
+    backup_path = 'data/labeled/labeled_transactions.csv.backup'
+
+    try:
+        # Load data
+        df = pd.read_csv(input_path, encoding='utf-8')
+        df_backup = df.copy()  # In-memory backup for rollback
+
+        print(f"Loaded {len(df)} rows")
+        print(f"Before: category value counts:")
+        print(df['category'].value_counts(dropna=False).to_string())
+        print()
+    except Exception as e:
+        print(f"ERROR loading data: {e}")
+        return
 
     # ========================================================================
     # PHASE 1: Relabel 12 "???" rows with their correct categories
@@ -35,6 +45,7 @@ def fix_labels():
     q_rows = df[df['category'] == '???'].copy()
     print(f"Found {len(q_rows)} rows with category='???'")
 
+    q_skipped = []
     for idx, row in q_rows.iterrows():
         merchant = row['merchant']
         if merchant in remap_dict:
@@ -44,6 +55,7 @@ def fix_labels():
             df.loc[idx, 'labeled'] = True
         else:
             print(f"  {merchant[:40]:40s} ??? → (NO MAPPING, skipped)")
+            q_skipped.append(merchant)
 
     print(f"\nAfter Phase 1: {len(df[df['category'] == '???'])} ??? rows remaining")
     print()
@@ -90,6 +102,7 @@ def fix_labels():
     print(f"Found {len(nan_rows)} NaN rows")
 
     labeled_count = 0
+    nan_skipped = []
     for idx, row in nan_rows.iterrows():
         merchant = row['merchant']
         if merchant in nan_remap:
@@ -98,6 +111,8 @@ def fix_labels():
             df.loc[idx, 'labeled'] = True
             labeled_count += 1
             print(f"  {merchant[:40]:40s} NaN → {new_cat}")
+        else:
+            nan_skipped.append(merchant)
 
     print(f"\nPhase 3: Labeled {labeled_count} NaN rows")
     print(f"Remaining NaN rows: {df['category'].isna().sum()}")
@@ -112,32 +127,58 @@ def fix_labels():
     print()
 
     print("SUMMARY:")
-    print(f"  Relabeled ??? rows: {len(q_rows)} → Eating Out/Transportation/Shopping")
-    print(f"  Relabeled Travel rows: 2 → Other")
-    print(f"  Labeled obvious NaN rows: {labeled_count} → Groceries/Eating Out/Other/Transfers&Gifts")
-    print(f"  Other category: 9 → {(df['category'] == 'Other').sum()} (includes 2 Travel + new Amusement/Health)")
-    print(f"  Groceries category: 204 → {(df['category'] == 'Groceries').sum()} (includes vending machines)")
-    print(f"  Eating Out category: 307 → {(df['category'] == 'Eating Out').sum()} (includes noodles + restaurants)")
+    print(f"  Relabeled ??? rows: {len(q_rows) - len(q_skipped)}/{len(q_rows)}")
+    if q_skipped:
+        print(f"    WARNING: {len(q_skipped)} rows skipped (not in mapping)")
+    print(f"  Relabeled Travel rows: {len(travel_rows)} → Other")
+    print(f"  Labeled NaN rows: {labeled_count}/{len(nan_rows)}")
+    if nan_skipped:
+        print(f"    WARNING: {len(nan_skipped)} rows skipped (not in mapping)")
+    print(f"  Other category total: {(df['category'] == 'Other').sum()}")
+    print(f"  Groceries category total: {(df['category'] == 'Groceries').sum()}")
+    print(f"  Eating Out category total: {(df['category'] == 'Eating Out').sum()}")
     print()
 
-    # Save
-    output_path = 'data/labeled/labeled_transactions.csv'
-    df.to_csv(output_path, index=False, encoding='utf-8')
-    print(f"✓ Saved to {output_path}")
-    print()
+    # Validate before saving
+    print("FINAL VALIDATION:")
+    print("-" * 70)
 
-    # Verify
-    print("VERIFICATION:")
-    print(f"  ??? rows remaining: {(df['category'] == '???').sum()} (should be 0)")
-    print(f"  Travel rows remaining: {(df['category'] == 'Travel').sum()} (should be 0)")
-    print(f"  NaN rows remaining: {df['category'].isna().sum()} (was 121, now fewer)")
+    q_remaining = (df['category'] == '???').sum()
+    t_remaining = (df['category'] == 'Travel').sum()
+    nan_remaining = df['category'].isna().sum()
+
+    print(f"  ??? rows remaining: {q_remaining} (should be 0)")
+    print(f"  Travel rows remaining: {t_remaining} (should be 0)")
+    print(f"  NaN rows remaining: {nan_remaining} (was 121)")
     print(f"  labeled=True rows: {(df['labeled'] == True).sum()}")
     print()
 
-    if (df['category'] == '???').sum() == 0 and (df['category'] == 'Travel').sum() == 0:
-        print("✓ SUCCESS: ??? and Travel categories eliminated")
-    else:
-        print("✗ WARNING: Some ??? or Travel rows remain")
+    # Abort if validation fails
+    if q_remaining > 0 or t_remaining > 0:
+        print(f"✗ VALIDATION FAILED: {q_remaining} ??? rows and {t_remaining} Travel rows still exist")
+        print(f"  Data NOT saved. No changes made.")
+        return
+
+    # Save with backup
+    try:
+        output_path = 'data/labeled/labeled_transactions.csv'
+        # Create timestamped backup
+        import shutil
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_path = f'data/labeled/labeled_transactions.csv.{timestamp}.backup'
+        shutil.copy2(output_path, backup_path)
+        print(f"✓ Backup created: {backup_path}")
+
+        # Write new version
+        df.to_csv(output_path, index=False, encoding='utf-8')
+        print(f"✓ Saved to {output_path}")
+        print(f"\n✓ SUCCESS: ??? and Travel categories eliminated")
+        print(f"  Backup available at: {backup_path}")
+    except Exception as e:
+        print(f"✗ ERROR saving file: {e}")
+        print(f"  Rolling back to in-memory backup...")
+        print(f"  Data NOT saved.")
 
 
 if __name__ == '__main__':
