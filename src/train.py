@@ -10,7 +10,7 @@ import joblib
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
-from segment import vectorize
+from segment import vectorize, build_vectorizer, clean_text
 
 
 def train_classifier(X_train, y_train):
@@ -18,7 +18,6 @@ def train_classifier(X_train, y_train):
     clf = LogisticRegression(
         max_iter=1000,
         random_state=42,
-        multi_class='multinomial',
         solver='lbfgs'
     )
     clf.fit(X_train, y_train)
@@ -111,30 +110,63 @@ if __name__ == '__main__':
 
     # Load data
     df_labeled = pd.read_csv('data/labeled/labeled_transactions.csv')
-    vectorizer = joblib.load('data/processed/tfidf_vectorizer.pkl')
+
+    # Filter to only labeled transactions and clean text
+    df_labeled = df_labeled[df_labeled['labeled'] == True].copy()
+    df_labeled['text'] = df_labeled.apply(
+        lambda row: clean_text(row['merchant'], row['description']),
+        axis=1
+    )
 
     print(f"\n1. Loaded {len(df_labeled)} labeled transactions")
+
+    # Build new vectorizer from current labeled data
+    print(f"2. Building vectorizer from {len(df_labeled)} texts...")
+    vectorizer = build_vectorizer(df_labeled['text'].tolist(), max_features=500)
+
+    # Save the new vectorizer
+    joblib.dump(vectorizer, 'data/processed/tfidf_vectorizer.pkl')
+    print(f"   Vectorizer saved with {vectorizer.get_feature_names_out().shape[0]} features")
 
     # Vectorize
     X = vectorize(df_labeled['text'].tolist(), vectorizer)
     y = df_labeled['category']
 
-    print(f"2. Vectorized to shape {X.shape}")
+    print(f"3. Vectorized to shape {X.shape}")
 
-    # Split train/test
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
+    # Check class distribution
+    print(f"\nClass distribution:")
+    for cat, count in y.value_counts().sort_values(ascending=False).items():
+        print(f"  {cat:30s}: {count:3d}")
 
-    print(f"3. Split data: {len(X_train)} train, {len(X_test)} test")
+    # Filter out categories with < 2 samples (can't split them)
+    print(f"\nFiltering out categories with < 2 samples...")
+    valid_categories = y.value_counts()[y.value_counts() >= 2].index
+    mask = y.isin(valid_categories).values
+    X = X[mask]
+    y = y[mask]
+    print(f"Kept {len(y)} transactions in {len(valid_categories)} categories")
+
+    # Split train/test (stratify only if possible)
+    try:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
+    except ValueError:
+        # If stratify still fails, split without it
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+
+    print(f"4. Split data: {X_train.shape[0]} train, {X_test.shape[0]} test")
 
     # Train classifier
-    print(f"4. Training Logistic Regression...")
+    print(f"5. Training Logistic Regression...")
     clf = train_classifier(X_train, y_train)
     print(f"   Done!")
 
     # Evaluate
-    categories = sorted(y.unique())
+    categories = sorted(y_test.unique())
     accuracy, y_pred = evaluate_classifier(clf, X_test, y_test, categories)
 
     # Show predictions
@@ -143,7 +175,7 @@ if __name__ == '__main__':
     # Save classifier
     clf_path = 'data/processed/classifier.pkl'
     joblib.dump(clf, clf_path)
-    print(f"\n5. Saved classifier to {clf_path}")
+    print(f"\n6. Saved classifier to {clf_path}")
 
     print(f"\n{'='*70}")
     if accuracy >= 0.80:

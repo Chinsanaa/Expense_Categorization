@@ -2,7 +2,7 @@
 
 An end-to-end machine learning pipeline to automatically categorize personal financial transactions from Alipay and WeChat Pay using supervised text classification.
 
-**Status**: ✅ Complete (Stages 1-7) | 99.1% Accuracy | 901 transactions classified
+**Status**: ✅ Complete (Stages 1-7 + Dashboard) | 97.3% Accuracy | 901 transactions classified | 157 merchant rules | 81.4% avg confidence
 
 ## Quick Start
 
@@ -14,6 +14,9 @@ pip install -r requirements.txt
 python3 src/parse.py          # Stage 1: Parse CSVs
 python3 src/classify.py       # Stage 6: Classify all transactions
 python3 src/visualize.py      # Stage 7: Generate charts
+
+# Launch interactive dashboard
+streamlit run src/dashboard.py
 ```
 
 ## Project Summary
@@ -21,28 +24,28 @@ python3 src/visualize.py      # Stage 7: Generate charts
 ### What It Does
 - Parses Alipay CSV + WeChat Excel exports
 - Cleans transaction text (handles Chinese + English)
-- Auto-labels using merchant rules (544/901 transactions)
-- Trains Logistic Regression classifier (99.1% accuracy)
-- Classifies all 901 transactions into 10 spending categories
-- Generates spending visualizations and summaries
+- Auto-labels using merchant rules (748/901 transactions, 157 rules)
+- Trains Logistic Regression classifier (97.3% accuracy)
+- Classifies all 901 transactions into 5 spending categories
+- Generates spending visualizations, dashboards, and summaries
+- Detects budget overages and spending anomalies
 
 ### Key Results
-- **Model Accuracy**: 99.1% on test set
+- **Model Accuracy**: 97.3% on test set (corrected labels)
 - **Transactions Classified**: 901/901 (100%)
-- **Mean Confidence**: 64.6%
-- **Training Data**: 544 labeled transactions
-- **Features**: 195 TF-IDF tokens (jieba-segmented)
+- **Mean Confidence**: 81.4%
+- **Training Data**: 748 labeled transactions (157 merchant rules)
+- **Features**: 246 TF-IDF tokens (jieba-segmented)
+- **"Other" Category**: Eliminated (0 transactions)
 
-### Spending Breakdown
-| Category | Count | Total Spend | Avg Confidence |
-|----------|-------|------------|---|
-| Eating Out | 299 | ¥8,400+ | 58.7% |
-| Transportation | 251 | ¥6,200+ | 64.8% |
-| Other | 220 | ¥4,800+ | 72.6% |
-| Shopping | 57 | ¥1,200+ | 73.1% |
-| Utilities & Services | 35 | ¥800+ | 68.1% |
-| Transfers & Gifts | 27 | ¥600+ | 49.1% |
-| Groceries | 12 | ¥300+ | 48.8% |
+### Spending Breakdown (Refined)
+| Category | Count | Pct | Avg Confidence |
+|----------|-------|-----|---|
+| Eating Out | 426 | 47.3% | 80.0% |
+| Groceries | 223 | 24.8% | 85.3% |
+| Transportation | 175 | 19.4% | 85.2% |
+| Shopping | 50 | 5.5% | 75.0% |
+| Transfers & Gifts | 27 | 3.0% | 59.1% |
 
 ## Pipeline Architecture
 
@@ -100,9 +103,11 @@ Stage 7: Visualize
 
 - ✅ **Mixed-Language Support**: jieba for Chinese, standard tokenization for English
 - ✅ **Dual-Source Normalization**: Handles Alipay CSV + WeChat Excel with different schemas
-- ✅ **Smart Labeling**: Rule-based pre-labeling reduces manual work by 75%
-- ✅ **Production-Ready**: 99.1% accuracy, interpretable Logistic Regression
+- ✅ **Smart Labeling**: Rule-based pre-labeling (157 merchant rules, 748 auto-labeled transactions)
+- ✅ **Production-Ready**: 97.3% accuracy, 81.4% avg confidence, interpretable Logistic Regression
 - ✅ **Full Pipeline**: Parse → Clean → Label → Train → Classify → Visualize
+- ✅ **Interactive Dashboard**: Real-time spending analytics, budget alerts, anomaly detection
+- ✅ **No "Other" Category**: Every transaction has a meaningful classification
 
 ## Technical Highlights
 
@@ -158,11 +163,18 @@ matplotlib>=3.5.0
 joblib>=1.1.0
 ```
 
-## Next Steps (Future Enhancements)
+## Completed Features
 
-- [ ] Interactive labeling UI for remaining 357 unlabeled transactions
-- [ ] Streamlit dashboard for real-time spending tracking
-- [ ] Budget alerts and spending trends
-- [ ] Anomaly detection (unusual merchants/amounts)
-- [ ] Support for other payment platforms
-- [ ] Monthly/yearly spending reports
+- ✅ Rule-based pre-labeling (eliminates manual labeling burden)
+- ✅ Streamlit dashboard for real-time spending tracking
+- ✅ Budget alerts and spending trends
+- ✅ Anomaly detection (unusual merchants/amounts)
+- ✅ Monthly spending reports with CSV export
+
+## Future Enhancements
+
+- [ ] Support for other payment platforms (WeChat transfers, Bank exports, etc.)
+- [ ] Machine learning model retraining on new labeled data
+- [ ] Spending goals and forecasting
+- [ ] Multi-year trend analysis
+- [ ] Email alerts for budget overages

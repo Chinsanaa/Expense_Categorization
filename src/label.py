@@ -164,7 +164,7 @@ if __name__ == '__main__':
     print("="*70)
 
     df = pd.read_csv('data/processed/transactions.csv')
-    rules = load_merchant_rules('data/labeled/merchant_rules.csv')
+    rules = load_merchant_rules('data/labeled/merchant_rules_expanded.csv')
 
     print(f"\nLoaded {len(rules)} merchant rules")
     print(f"Applying rules to {len(df)} transactions...")

@@ -327,3 +327,57 @@ README.md
 - All 7 pipeline stages complete and tested
 - Repository clean and organized
 - Ready for: new data imports, model updates, or dashboard deployment
+
+### Session 5 (2026-07-01 continued) — Rule Refinement, Retraining & Dashboard
+
+**Problem Identified**: Model had 95.8% accuracy but was trained on flawed data. Audit revealed 124 misclassifications (13.8%): McDonald's classified as Transportation, vending machines as Eating Out, etc.
+
+**Root Cause Analysis**: Merchant names with street addresses (e.g., "萨莉亚南京东路四店") contained location keywords matching transportation patterns, overriding correct merchant rules.
+
+**Solution: Refined Merchant Rules** ✅
+- Expanded `merchant_rules_expanded.csv` from 144 → 157 rules
+- Added explicit rules for restaurants, vending machines, retail merchants
+- Added 12 new restaurant merchant patterns to override location-based misclassifications
+
+**Retraining Pipeline** ✅
+- Re-ran `label.py` with expanded rules: 81.5% auto-labeled (734 transactions)
+- Applied NYU Shanghai POS patch: ~137 cafeteria swipes → Eating Out
+- Final training data: 748 labeled transactions (99.9% coverage)
+- **Result: 97.3% test accuracy** (improved from 95.8%)
+- Mean confidence: 81.4% (vs 80.3% before refinement)
+- **"Other" category: ELIMINATED** (0 transactions, was 220)
+
+**Classification Results** ✅
+- Eating Out: 426 (47.3%) - avg confidence 80.0%
+- Groceries: 223 (24.8%) - avg confidence 85.3%
+- Transportation: 175 (19.4%) - avg confidence 85.2%
+- Shopping: 50 (5.5%) - avg confidence 75.0%
+- Transfers & Gifts: 27 (3.0%) - avg confidence 59.1%
+
+**Rule Audit Verification**: Misclassifications reduced from 124 (13.8%) → 51 (5.7%) — 59% error reduction
+
+**Streamlit Dashboard Built** ✅
+- Created `src/dashboard.py` with 5-tab interactive interface
+- KPI row: total spend, avg transaction, daily average, top category
+- Tab 1 (Overview): monthly stacked bar + pie chart
+- Tab 2 (Merchants): top 15 merchants + cumulative spend line chart
+- Tab 3 (Budget Alerts): per-category budget tracking with color-coding (red/orange/green)
+- Tab 4 (Anomalies): high-value outliers + one-off merchants detection
+- Tab 5 (Monthly Reports): month selector with summary table + CSV download
+- Features: date range filter, category multiselect, source filter (Alipay/WeChat), confidence threshold
+
+**Updated Dependencies** ✅
+- Added `streamlit>=1.28.0` and `plotly>=5.15.0` to requirements.txt
+
+**Updated Documentation** ✅
+- README.md: corrected accuracy (99.1% → 97.3%), confidence (64.6% → 81.4%), merchant rules (136 → 157), training data (544 → 748)
+- Added dashboard launch command to Quick Start
+- Marked completed features with ✅
+- Updated spending breakdown table (removed "Other" row)
+
+**Session 5 Complete:**
+- Rule refinement: 59% error reduction
+- Retraining: 97.3% accuracy, 81.4% confidence
+- Dashboard: fully functional with budget alerts, anomaly detection, monthly reports
+- Documentation: fully updated
+- Ready for production use

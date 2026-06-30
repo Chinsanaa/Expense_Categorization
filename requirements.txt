@@ -4,3 +4,5 @@ jieba>=0.42.1
 openpyxl>=3.0.0
 matplotlib>=3.5.0
 joblib>=1.1.0
+streamlit>=1.28.0
+plotly>=5.15.0

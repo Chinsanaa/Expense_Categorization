@@ -17,7 +17,7 @@ Chuyi Catering,Eating Out
 Dewu (POIZON) App Merchant,Shopping
 DiDi,Transportation
 Domino's,Eating Out
-"Dufurui (Shanghai) Commerce Co., Ltd.",???
+"Dufurui (Shanghai) Commerce Co., Ltd.",Shopping
 Elephant Smart Vending,Eating Out
 Evie,Eating Out
 FamilyMart,Groceries
@@ -32,13 +32,13 @@ HeyGuac Americas Western Food,Eating Out
 Holy Bagel,Eating Out
 Hu-Zhe 7-ELEVEN,Groceries
 Huixuan Market,Groceries
-JUNGLEplus Guangzhou Animation Town Store,???
+JUNGLEplus Guangzhou Animation Town Store,Shopping
 Jiuding Catering Mgmt,???
 Jiufen Old Street,Travel
 Juyou Wutong,???
 K-MART,Groceries
 KFC,Eating Out
-KKV,Groceries
+KKV,Shopping
 KOG,Eating Out
 Kunlun Tangfu Lanzhou Clear-Soup Beef Noodles,Eating Out
 LA BARAKA UV,???
@@ -67,15 +67,15 @@ Pinduoduo Platform Merchant,Shopping
 Pizza Hut,Eating Out
 Popeys,Eating Out
 "President Chain Store (Shanghai) Convenience Co., Ltd.",???
-Rongkang Shared Massage Chair,???
+Rongkang Shared Massage Chair,Health & Wellness
 SUBWAY,Eating Out
 Saizeriya,Eating Out
 Shanghai Baomao Bar,Eating Out
 "Shanghai Baomao Catering Management Co., Ltd.",???
-Shanghai International Travel Healthcare Center,???
-Shanghai One-Stop Govt Service Payment Platform,???
-"Shanghai Pumo Brand Management Co., Ltd.",???
-Shanghai Ruisheng Industry & Trade,Utilities & Services
+Shanghai International Travel Healthcare Center,Health & Wellness
+Shanghai One-Stop Govt Service Payment Platform,Utilities & Services
+"Shanghai Pumo Brand Management Co., Ltd.",Shopping
+Shanghai Ruisheng Industry & Trade,Eating Out
 "Shanghai Tantan Catering Management Co., Ltd.",???
 "Shanghai Xiangxuehai International Trade Co., Ltd.",???
 "Shanghai Yinghe Enterprise Management Co., Ltd.",???
@@ -110,11 +110,11 @@ ws**1,???
 上海公共交通卡股份有限公司,???
 上海地铁,Transportation
 上海申通地铁资产经营管理有限公司,Transportation
-上海纽约大学,???
-上海都畅数字技术有限公司,Utilities & Services
+上海纽约大学,Other
+上海都畅数字技术有限公司,Transportation
 上海饱猫餐饮管理有限公司,???
 中国移动,???
-乐科智控,???
+乐科智控,Groceries
 卓联（上海）餐饮服务有限公司,???
 哈啰,Transportation
 哈啰出行,Transportation
@@ -129,9 +129,35 @@ ws**1,???
 淘宝,Shopping
 淘宝闪购,Shopping
 滴滴出行,Transportation
-绿联**店,???
+绿联**店,Shopping
 美团,Eating Out
-蜜雪冰城934055店,???
+蜜雪冰城934055店,Eating Out
 高德打车,Transportation
-高青西门市,???
-鹈鹕镇大王,???
+高青西门市,Groceries
+鹈鹕镇大王,Eating Out
+喜士多,Groceries
+全家,Groceries
+荟选集市,Groceries
+奥乐齐,Groceries
+大黄鹅,Groceries
+名创优品,Shopping
+淘宝闪购,Eating Out
+恒品**店,Health & Wellness
+護踝,Health & Wellness
+上海谱墨,Shopping
+麦当劳,Eating Out
+萨莉亚,Eating Out
+上海饱猫餐饮,Eating Out
+初易（上海）餐饮,Eating Out
+昔客堡（上海）,Eating Out
+久鼎餐饮,Eating Out
+卓联（上海）餐饮,Eating Out
+上海檀檀之家,Eating Out
+喝清喝理（上海）,Eating Out
+上海芸译餐饮,Eating Out
+叶浦都餐饮,Eating Out
+友宝昂莱,Groceries
+上海市豹喵酒吧,Eating Out
+Holy Bagel,Eating Out
+淘宝闪购,Eating Out
+恒品**店,Shopping
