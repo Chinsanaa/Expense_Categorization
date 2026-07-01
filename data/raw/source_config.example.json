@@ -1,0 +1,21 @@
+{
+  "_comment": "Copy to source_config.json and edit paths/columns for your bank or card export.",
+  "additional_sources": [
+    {
+      "path": "bank_export.csv",
+      "source": "bank",
+      "column_map": {
+        "timestamp": "交易日期",
+        "amount": "支出金额",
+        "merchant": "对方户名",
+        "description": "摘要",
+        "direction": "收/支"
+      }
+    },
+    {
+      "path": "credit_card.csv",
+      "source": "credit_card",
+      "encoding": "gbk"
+    }
+  ]
+}

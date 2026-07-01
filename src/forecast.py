@@ -6,6 +6,8 @@ import numpy as np
 from datetime import datetime, timedelta
 import json
 
+from categories import ACTIVE_CATEGORIES, FORECAST_MONTHS
+
 
 def load_budget_config(path='data/budget_config.json'):
     """Load budget configuration."""
@@ -85,6 +87,7 @@ def calculate_historical_patterns(df, basis_start=None, basis_end=None):
             'monthly_avg': monthly_avg,
             'monthly_std': monthly_std,
             'monthly_values': month_str_values,
+            'monthly_series': monthly.sort_index().values.tolist(),
             'trend': trend,
             'volatility': volatility,
             'confidence': confidence,
@@ -94,7 +97,43 @@ def calculate_historical_patterns(df, basis_start=None, basis_end=None):
     return patterns
 
 
-def project_spending(df, patterns, budget_config, forecast_months=9):
+def ewma_monthly_forecast(monthly_values: np.ndarray, alpha: float = 0.35) -> float:
+    """
+    Exponential weighted moving average — gives more weight to recent months.
+
+    alpha near 1 reacts quickly to recent spikes; near 0 smooths heavily.
+    """
+    if len(monthly_values) == 0:
+        return 0.0
+    if len(monthly_values) == 1:
+        return float(monthly_values[0])
+
+    level = float(monthly_values[0])
+    for value in monthly_values[1:]:
+        level = alpha * float(value) + (1 - alpha) * level
+    return level
+
+
+def _base_projection(pattern: dict, month: str, avg_monthly: float, method: str) -> float:
+    """Shared base spend estimate before trend adjustment."""
+    historical_avg = pattern.get('monthly_avg', avg_monthly)
+    month_pattern = pattern.get('monthly_values', {}).get(month, [])
+
+    if month_pattern and len(month_pattern) > 0:
+        month_avg = np.mean(month_pattern)
+        seasonal_base = 0.7 * month_avg + 0.3 * historical_avg
+    else:
+        seasonal_base = historical_avg
+
+    if method == 'ewma':
+        monthly_series = pattern.get('monthly_series', [])
+        if monthly_series:
+            ewma = ewma_monthly_forecast(np.array(monthly_series))
+            return 0.6 * ewma + 0.4 * seasonal_base
+    return seasonal_base
+
+
+def project_spending(df, patterns, budget_config, forecast_months=9, method='seasonal'):
     """
     Project spending for next N months.
 
@@ -103,41 +142,32 @@ def project_spending(df, patterns, budget_config, forecast_months=9):
         patterns: Historical patterns dict
         budget_config: Budget configuration dict
         forecast_months: Number of months to forecast (default 9 for Sep-May)
+        method: 'seasonal' (default) or 'ewma' (exponential smoothing on recent months)
 
     Returns:
         DataFrame with projected spending:
         month, category, projected_spend, budget, variance, % of budget, risk_level, confidence
     """
 
-    months_list = ['Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May']
-    now = pd.to_datetime('today')
-    current_month = now.strftime('%b')
+    months_list = FORECAST_MONTHS
 
     forecast_data = []
 
-    for category in budget_config['categories'].keys():
+    for category in ACTIVE_CATEGORIES:
+        if category not in budget_config['categories']:
+            continue
         pattern = patterns.get(category, {})
         cat_budget = budget_config['categories'][category]
         avg_monthly = cat_budget['avg_monthly']
         monthly_allocations = cat_budget.get('monthly', [])
 
         for month_idx, month in enumerate(months_list[:forecast_months]):
-            # Base: use historical average or budget target
-            historical_avg = pattern.get('monthly_avg', avg_monthly)
+            base = _base_projection(pattern, month, avg_monthly, method)
 
-            # Adjust by historical month-of-year pattern
-            month_pattern = pattern.get('monthly_values', {}).get(month, [])
-            if month_pattern and len(month_pattern) > 0:
-                # Use average of that month across all years
-                month_avg = np.mean(month_pattern)
-                # Weight: 70% historical month pattern, 30% overall average
-                base = 0.7 * month_avg + 0.3 * historical_avg
-            else:
-                base = historical_avg
-
-            # Apply trend
+            # Apply linear trend (seasonal method leans on slope; ewma uses lighter trend)
             trend = pattern.get('trend', 0)
-            projected = base + (trend * month_idx)
+            trend_weight = 0.5 if method == 'ewma' else 1.0
+            projected = base + (trend * month_idx * trend_weight)
 
             # Compare to budget
             budget_target = monthly_allocations[month_idx] if month_idx < len(monthly_allocations) else avg_monthly
@@ -188,7 +218,9 @@ def calculate_ytd_summary(df_transactions, budget_config, forecast_df):
     projected_by_cat = forecast_df.groupby('category')['projected_spend'].sum().to_dict()
 
     summary = {}
-    for category in budget_config['categories'].keys():
+    for category in ACTIVE_CATEGORIES:
+        if category not in budget_config['categories']:
+            continue
         actual = ytd_actual.get(category, 0)
         projected = projected_by_cat.get(category, 0)
         budget = budget_config['categories'][category]['annual_budget']

@@ -88,7 +88,7 @@ Raw Data (CSV Exports)
 
 ## Results & Performance
 
-### Accuracy Metrics (current — Session 14, July 2026)
+### Accuracy Metrics (current — Session 17, July 2026)
 
 | Metric | Value | Status |
 |---|---|---|
@@ -101,29 +101,17 @@ Raw Data (CSV Exports)
 | **Transactions Classified** | 901/901 | ✅ 100% coverage |
 | **`???` placeholder category** | 0 | ✅ Resolved (Session 14) |
 
-**Per-Category Performance (863 labeled training samples, last retrain):**
+**Per-category summary** (863 labeled training samples at last retrain · 901 live transactions, ¥23,895 total):
 
-| Category | Precision | Recall | F1 | Training Samples |
-|---|---|---|---|---|
-| Transportation | 100% | 100% | **1.000** | 169 |
-| Eating Out | 100% | 98% | **0.992** | 330 |
-| Groceries | 100% | 99% | **0.994** | 269 |
-| Shopping | 96% | 98% | **0.973** | 55 |
-| Transfers & Gifts | 91% | 95% | **0.933** | 22 |
-| Other | 65% | 100% | **0.786** | 11 |
-| Utilities & Services | 100% | 100% | **1.000** | 5 |
-
-**Live classification distribution (901 transactions):**
-
-| Category | Count | % of Spend | Avg Confidence |
-|---|---|---|---|
-| Eating Out | 359 | 41.1% | 98.6% |
-| Shopping | 56 | 15.7% | 98.7% |
-| Groceries | 272 | 13.8% | 99.2% |
-| Transportation | 169 | 10.0% | 100% |
-| Other | 11 | 8.9% | 90.5% |
-| Transfers & Gifts | 26 | 8.4% | 99.6% |
-| Utilities & Services | 5 | 0.4% | 100% |
+| Category | Training Samples | Precision | Recall | F1 | Live Count | % of Spend | Avg Confidence |
+|---|---|---|---|---|---|---|---|
+| Eating Out | 330 | 100% | 98% | **0.992** | 359 | 41.1% | 98.6% |
+| Shopping | 55 | 96% | 98% | **0.973** | 56 | 15.7% | 98.7% |
+| Groceries | 269 | 100% | 99% | **0.994** | 272 | 13.8% | 99.2% |
+| Transportation | 169 | 100% | 100% | **1.000** | 169 | 10.0% | 100% |
+| Other | 11 | 65% | 100% | **0.786** | 11 | 8.9% | 90.5% |
+| Transfers & Gifts | 22 | 91% | 95% | **0.933** | 26 | 8.4% | 99.6% |
+| Utilities & Services | 5 | 100% | 100% | **1.000** | 5 | 0.4% | 100% |
 
 ### Key Improvements (Recent Sessions)
 
@@ -149,27 +137,14 @@ Raw Data (CSV Exports)
 - Monthly pipeline: label → retrain → evaluate → classify
 - **Result**: 3-6 week automation lifecycle established
 
-**Sessions 9-10: Decision-Making Dashboard (Tab 8) + Anomaly Detection Fix**
-- **Tab 8 Features:**
-  - Need vs Want efficiency tracking (monthly savings goal progress)
-  - Top 10 cuttable merchants (ranked by recurring impact)
-  - Interactive savings gap calculator (simulate spending cuts)
-  - Investment readiness indicator (3-month goal achievement)
-- **Anomaly Detection:**
-  - Replaced mean+2*σ with IQR+¥150 floor (correct for right-skewed distribution)
-  - Eliminated false positives: 100+ flagged transactions → ~5
-- **Result**: Dashboard went from tracking past spending to prescribing future actions
+**Sessions 16–17: Dashboard restructure + pipeline enhancements**
+- **Session 16:** `src/trends.py` (multi-year YoY analysis); generic bank/card CSV parser in `parse.py`; EWMA forecast option in `forecast.py`
+- **Session 17:** Rebuilt dashboard from 8→3→**5 tabs** (see [Dashboard Features](#dashboard-features)); merged Overview+Merchants, Budget+Forecast, Savings+Anomalies; restored full Action Plan (savings-gap sliders, investment readiness); Reports as dedicated export tab
+- Multi-year trend charts removed from dashboard UI in Session 17 (`trends.py` remains available to re-wire)
 
-### Spending Breakdown (901 transactions, ¥23,895 total)
-
-| Category | % of Total Spend | Avg Confidence |
-|---|---|---|
-| Eating Out | 41.1% | 98.6% |
-| Shopping | 15.7% | 98.7% |
-| Groceries | 13.8% | 99.2% |
-| Transportation | 10.0% | 100% |
-| Other | 8.9% | 90.5% |
-| Transfers & Gifts | 8.4% | 99.6% |
+**Sessions 9-10: Decision-making tools + anomaly detection fix** *(now in Tabs 3–4)*
+- Need vs Want efficiency, cuttable merchants, savings gap calculator, investment readiness → **Action Plan** tab
+- IQR+¥150 anomaly detection (was 100+ false positives → ~5) → **Savings & Anomalies** tab
 
 ---
 
@@ -225,33 +200,17 @@ Raw Data (CSV Exports)
 
 ## Dashboard Features
 
-### Interactive Visualizations
+Five-tab Streamlit dashboard (`streamlit run src/dashboard.py`). Filters (date, category, source, confidence) apply on the **Overview** tab; other tabs use full dataset or their own month selectors.
 
-**Tab 1: Spending Overview**
-- Monthly trend chart with category breakdown
-- Category pie chart and distribution table
-- Real-time filtering by date range
+| Tab | What it answers |
+|---|---|
+| **📊 Overview** | Where did money go? KPIs (total spend, avg txn, daily avg, top category); monthly stacked bar by category; pie breakdown; top 15 merchants; cumulative spend line |
+| **💳 Budget & Forecast** | Am I on track? Per-category budget cards (green/orange/red); variance table (¥ and %); 9-month risk; budget vs actual bar; forecast heatmap (Sep→May); seasonal vs EWMA toggle |
+| **💰 Savings & Anomalies** | What's unusual or off-track? Monthly income, YTD savings rate, year-end projection vs ¥7,200 goal; need/want split; daily burn rate; cumulative savings trend; high-value outliers and one-off merchants (IQR-based) |
+| **🎯 Action Plan** | What should I cut? Efficiency score (% months met ¥600 goal); ranked discretionary transactions; cuttable merchants chart; interactive savings-gap sliders; investment readiness (3/3 recent months) |
+| **📋 Reports** | Export utility — month picker, category summary table, CSV download |
 
-**Tab 2: Merchant Analysis**
-- Top merchants ranked by spend
-- Recurring vs. one-time classification
-- Per-merchant confidence scores
-
-**Tab 3: Budget Tracking**
-- Monthly spending vs. budget allocations
-- Visual progress bars per category
-- Alerts for overage conditions
-
-**Tab 4: Anomaly Detection** *(Fixed in Session 10)*
-- IQR-based outlier detection (statistically sound)
-- Flags unusually large transactions
-- ~5 genuine anomalies per month (vs. 100+ false positives before)
-
-**Tab 8: Action Plan** *(New in Session 9)*
-- **Need vs Want Efficiency**: Stacked bar chart tracking discretionary spending
-- **Top 10 Cuttable Merchants**: Ranked impact analysis
-- **Savings Gap Calculator**: Interactive sliders to simulate spending cuts
-- **Investment Readiness**: 3-month goal check with investment recommendations
+**Tab evolution:** Original build had 8 tabs (Overview, Merchants, Budget, Anomalies, Reports, Forecasting, Savings, Action Plan). Session 10 collapsed to 3 priority tabs; Session 17 settled on the 5-tab structure above without losing functionality.
 
 ---
 
@@ -312,6 +271,20 @@ python3 src/retrain.py
 python3 src/classify.py
 ```
 
+### Add Bank or Credit Card Exports
+
+Drop a CSV into `data/raw/` as `bank.csv` or `credit_card.csv`, or copy
+`data/raw/source_config.example.json` → `source_config.json` and set column names
+for your bank's export format. Then re-run parse:
+
+```bash
+python3 src/parse.py
+python3 src/classify.py
+```
+
+The parser auto-detects common Chinese/English headers (交易日期, Amount, etc.)
+and filters to expenses only when a 收/支 / Type column is present.
+
 ---
 
 ## Project Structure
@@ -355,6 +328,7 @@ financing/
 │   ├── dashboard_helpers.py
 │   ├── merchant_display.py
 │   ├── forecast.py
+│   ├── trends.py              # Multi-year trend analysis
 │   └── find_other_candidates.py
 │
 └── _archive/                 # Old experiments, one-off scripts, backups
@@ -380,7 +354,7 @@ Well-calibrated confidence scores with a two-layer strategy: merchant rules set 
 Class weighting ensures minority spending categories (Transfers, Shopping) are learned equally well, not ignored in favor of majority categories.
 
 ### 6. **Interactive Dashboard**
-8 tabs of visualizations and decision-making tools: spending trends, anomalies, budget alerts, merchant analysis, and actionable savings recommendations.
+Five tabs: spending overview, budget & forecast, savings & anomalies, action plan, and monthly reports/export — decision-making tools (savings calculator, investment readiness) plus IQR-based anomaly detection.
 
 ### 7. **Automated Retraining Pipeline**
 Monthly workflow to identify ambiguous transactions, collect labels, retrain model, and evaluate without manual intervention.
@@ -412,16 +386,16 @@ Monthly workflow to identify ambiguous transactions, collect labels, retrain mod
 
 ### Current Limitations
 1. **Fixed monthly income assumption** (¥2,986) — varies for users with irregular income
-2. **Transaction data limited to 1 year** — multi-year trends not yet possible
+2. **~10 months of transaction data** (Aug 2025 – May 2026) — multi-year YoY charts live in `src/trends.py` but not yet wired back into the dashboard UI
 3. **7 spending categories** — could expand with more training data
 4. **No real-time classification** — batch processing only (acceptable for monthly use)
 
 ### Future Enhancements
-- [ ] Multi-year trend analysis (once data accumulates)
-- [ ] Support additional payment sources (bank transfers, credit card exports)
+- [x] Multi-year trend analysis — `src/trends.py` built (Session 16); dashboard UI removed in Session 17 restructure — re-add when desired
+- [x] Support additional payment sources — generic bank/card CSV parser in `parse.py`; see `data/raw/source_config.example.json`
 - [ ] Automated feature engineering with larger datasets (2000+ samples)
 - [ ] Mobile app for quick transaction review
-- [ ] Budget forecasting using time-series models
+- [x] Budget forecasting — EWMA option alongside seasonal+trend in `forecast.py` (Budget & Forecast tab)
 
 ---
 
@@ -473,7 +447,7 @@ streamlit run src/dashboard.py
 - ✅ Full-stack data pipeline (parsing → cleaning → feature engineering → modeling → visualization)
 - ✅ Automated workflows (retraining, candidate discovery)
 - ✅ Code organization and modularity (7-stage pipeline)
-- ✅ Interactive dashboards (Streamlit with 8 tabs)
+- ✅ Interactive dashboards (Streamlit, 5-tab layout)
 - ✅ Version control and documentation
 
 **Soft Skills:**
@@ -516,4 +490,4 @@ Open source (MIT License)
 
 For questions about the implementation or technical decisions, see `context.md` for detailed session logs and decision rationale.
 
-**Last Updated:** Session 14 (2026-07-01)
+**Last Updated:** Session 17 (2026-07-01) — 5-tab dashboard restructure; per-category results table consolidated

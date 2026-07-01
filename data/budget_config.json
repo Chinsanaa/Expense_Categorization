@@ -2,7 +2,7 @@
   "income": 2986.0,
   "currency": "CNY",
   "period": "Sep 2026 - Jun 2027",
-  "total_budget": 26650.247999999992,
+  "total_budget": 25476.888,
   "saving_goal_monthly": 600.0,
   "saving_goal_annual": 7200.0,
   "categories": {
@@ -106,57 +106,6 @@
         1662.9997740372119,
         731.7147202951675,
         960.0
-      ]
-    },
-    "Entertainment": {
-      "type": "Want",
-      "avg_monthly": 7.079999999999996,
-      "monthly_budget": 20.0,
-      "annual_budget": 84.95999999999995,
-      "monthly": [
-        20.0,
-        20.0,
-        20.0,
-        20.0,
-        20.0,
-        20.0,
-        20.0,
-        20.0,
-        20.0
-      ]
-    },
-    "Health & Wellness": {
-      "type": "Need",
-      "avg_monthly": 55.4,
-      "monthly_budget": 20.0,
-      "annual_budget": 664.8,
-      "monthly": [
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        20.0
-      ]
-    },
-    "Travel": {
-      "type": "Need",
-      "avg_monthly": 35.3,
-      "monthly_budget": 20.0,
-      "annual_budget": 423.59999999999997,
-      "monthly": [
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        30.02832861189802,
-        20.0
       ]
     },
     "Utilities & Services": {

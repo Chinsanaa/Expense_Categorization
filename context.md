@@ -73,14 +73,13 @@ not the right primary tool:
 - [ ] Exact column structure of WeChat export CSV (need a sample)
 - [ ] How to handle refunds / transfers between own accounts (exclude from
       spend totals? separate category?)
-- [ ] Visualization tool: Streamlit dashboard vs. static matplotlib/plotly
-      charts (leaning Streamlit for interactivity, not yet confirmed)
+- [x] Visualization tool: **Streamlit** dashboard (5 tabs, Session 17)
 
 ## Next Suggested Step
 
-Label the **8** remaining low-confidence items in `needs_manual_review.csv` (达美乐, 蜜雪冰城, 杜福睿, 7-ELEVEN, 好德, etc.), then retrain. Optionally review the 11 genuine "Other" transactions (visa fees, tuition, travel clinic).
+Run `streamlit run src/dashboard.py` and walk through all 5 tabs. Label the **8** remaining items in `needs_manual_review.csv`, or test the multi-source parser with a bank CSV in `data/raw/`. Optionally re-wire `src/trends.py` into the dashboard.
 
-## Current Production Metrics (Session 14, 2026-07-01)
+## Current Production Metrics (Session 17, 2026-07-01)
 
 | Metric | Value |
 |---|---|
@@ -93,6 +92,7 @@ Label the **8** remaining low-confidence items in `needs_manual_review.csv` (达
 | Labeled training samples | **863** |
 | Merchant rules (unique) | **172** |
 | `???` placeholder category | **0** |
+| Dashboard | **5 tabs** (Overview · Budget & Forecast · Savings & Anomalies · Action Plan · Reports) |
 
 ## Session Log
 
@@ -920,3 +920,55 @@ All detailed documentation has been integrated below. Original files served spec
 - `_archive/fix_labels.py` — moved one-off script out of `src/`
 
 **Updated paths in:** `visualize.py`, `segment.py`, `label.py`, `retrain.py`, `classify.py`, `README.md`, `CLAUDE.md`, `.gitignore`
+
+---
+
+### Session 16 (2026-07-01) — Future enhancements (phase 1)
+
+**Implemented (3 of 5 README items):**
+
+1. **Multi-year trends** — new `src/trends.py`; was on Spending Overview tab through Session 16, **removed from dashboard UI in Session 17** (module kept for future re-wire). YoY unlocks when 2+ calendar years exist (currently 2025 + 2026).
+2. **Additional payment sources** — `parse_generic_bank_csv()` in `parse.py`; auto-discovers `bank.csv` / `credit_card.csv`; optional `data/raw/source_config.json` for custom column maps (`source_config.example.json` provided).
+3. **Budget forecasting** — EWMA method added to `forecast.py`; lives on **Budget & Forecast** tab (seasonal vs EWMA toggle).
+
+**Deferred:**
+- Automated feature engineering (wait for 2000+ labeled samples)
+- Mobile app for transaction review
+- Re-wire `trends.py` into dashboard (Overview or separate tab)
+
+**Next suggested step:** Label remaining 8 manual-review items, or add a real bank CSV export to test the new parser end-to-end.
+
+---
+
+### Session 17 (2026-07-01) — Dashboard 5-tab restructure
+
+**Context:** Dashboard had evolved 8 tabs → 3 priority tabs (Session 10). User requested a cleaner 5-tab layout that merges related views without losing functionality.
+
+**What changed:** Rebuilt `src/dashboard.py` from 3 tabs → 5 tabs.
+
+| Tab | Merges / contents |
+|---|---|
+| **Overview** | Old Overview + Merchants — KPIs, filters, stacked monthly bar, pie, top-15 merchants, cumulative spend |
+| **Budget & Forecast** | Old Budget Alerts + Forecasting — budget cards, variance (¥/%), risk, budget vs actual bar, 9-mo heatmap, EWMA/seasonal |
+| **Savings & Anomalies** | Old Savings & Income + Anomalies — income, YTD savings, ¥7,200 goal, need/want, burn rate, cumulative savings line, outlier tables |
+| **Action Plan** | Restored Session 9 features in dedicated tab — efficiency score, discretionary txn list, cuttable merchants, savings-gap sliders, investment readiness |
+| **Reports** | Old Monthly Reports — month picker, summary table, CSV download |
+
+**Removed from Overview:** Multi-year trends section (`src/trends.py` unchanged).
+
+**Reused:** `dashboard_helpers`, `forecast`, `merchant_display`, IQR anomaly logic, budget card HTML, savings projection math.
+
+**Launch:** `streamlit run src/dashboard.py`
+
+---
+
+### Session 18 (2026-07-01) — README documentation sync
+
+**What changed:**
+- **Results table:** Merged three repetitive per-category tables (training performance, live distribution, spending breakdown) into one table with columns: Training Samples, Precision, Recall, F1, Live Count, % of Spend, Avg Confidence
+- **Dashboard section:** Replaced outdated 8-tab list with current 5-tab structure and tab-evolution note
+- **Key Improvements:** Added Sessions 16–17; remapped Sessions 9–10 features to new tab names
+- **Limitations / Future work:** Clarified `trends.py` exists but is not in dashboard UI; EWMA on Budget & Forecast tab
+- **Last Updated:** Session 17
+
+**Next suggested step:** Run `streamlit run src/dashboard.py` and walk through all 5 tabs; label **8** items in `needs_manual_review.csv`.

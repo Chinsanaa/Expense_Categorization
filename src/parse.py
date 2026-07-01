@@ -1,7 +1,126 @@
-"""CSV/Excel parsers for Alipay and WeChat transactions."""
+"""CSV/Excel parsers for Alipay, WeChat, and generic bank/card exports."""
+import json
 import pandas as pd
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Tuple
+
+
+# Header aliases for auto-detecting generic bank / credit-card CSV columns
+_COLUMN_ALIASES: Dict[str, List[str]] = {
+    'timestamp': [
+        '交易时间', '交易日期', '记账日期', '入账日期', '发生时间',
+        'Transaction Time', 'Transaction Date', 'Date', 'Posting Date',
+    ],
+    'amount': [
+        '金额', '交易金额', '支出金额', '入账金额', 'Amount', 'Amount (CNY)',
+        'Debit', '交易金额(元)', '金额(元)',
+    ],
+    'merchant': [
+        '交易对方', '对方户名', '商户名称', '商户', 'Counterparty', 'Merchant',
+        'Payee', 'Description',
+    ],
+    'description': [
+        '商品说明', '商品', '摘要', '交易摘要', '备注', '用途',
+        'Product Description', 'Product', 'Memo', 'Narrative',
+    ],
+    'direction': [
+        '收/支', '借贷标志', '收支类型', 'Income/Expense', 'Type', 'Dr/Cr',
+    ],
+}
+
+
+def _find_column(df: pd.DataFrame, field: str, override: Optional[str] = None) -> Optional[str]:
+    """Resolve a dataframe column name from aliases or explicit mapping."""
+    if override and override in df.columns:
+        return override
+    for candidate in _COLUMN_ALIASES.get(field, []):
+        if candidate in df.columns:
+            return candidate
+    return None
+
+
+def _parse_amount_series(series: pd.Series) -> pd.Series:
+    cleaned = (
+        series.astype(str)
+        .str.replace(',', '', regex=False)
+        .str.replace('¥', '', regex=False)
+        .str.replace('￥', '', regex=False)
+        .str.strip()
+    )
+    return pd.to_numeric(cleaned, errors='coerce')
+
+
+def parse_generic_bank_csv(
+    csv_path: str,
+    source: str = 'bank',
+    column_map: Optional[Dict[str, str]] = None,
+    encoding: Optional[str] = None,
+) -> pd.DataFrame:
+    """
+    Parse a bank transfer or credit-card CSV export into the unified schema.
+
+  Auto-detects common Chinese/English column headers. Pass column_map to
+  override detection, e.g. {"timestamp": "记账日期", "amount": "支出金额"}.
+    """
+    column_map = column_map or {}
+    last_error = None
+
+    for enc in ([encoding] if encoding else []) + ['utf-8-sig', 'utf-8', 'gbk', 'gb18030']:
+        try:
+            raw = pd.read_csv(csv_path, encoding=enc)
+            break
+        except (UnicodeDecodeError, LookupError) as exc:
+            last_error = exc
+            raw = None
+    else:
+        raise ValueError(f"Cannot read bank CSV encoding: {csv_path} ({last_error})")
+
+    ts_col = _find_column(raw, 'timestamp', column_map.get('timestamp'))
+    amt_col = _find_column(raw, 'amount', column_map.get('amount'))
+    if not ts_col or not amt_col:
+        raise ValueError(
+            f"Cannot detect date/amount columns in {csv_path}. "
+            f"Found: {list(raw.columns)}. Add column_map in source_config.json."
+        )
+
+    merchant_col = _find_column(raw, 'merchant', column_map.get('merchant'))
+    desc_col = _find_column(raw, 'description', column_map.get('description'))
+    direction_col = _find_column(raw, 'direction', column_map.get('direction'))
+
+    df = raw.copy()
+    if direction_col:
+        expense_markers = {'支出', '借', 'Debit', 'Expense', '出', 'D'}
+        df = df[df[direction_col].astype(str).str.strip().isin(expense_markers)]
+
+    amount = _parse_amount_series(df[amt_col]).abs()
+    df = df[amount > 0].copy()
+    amount = amount[amount > 0]
+
+    merchant = (
+        df[merchant_col].fillna('').astype(str).str.strip()
+        if merchant_col else pd.Series([''] * len(df), index=df.index)
+    )
+    description = (
+        df[desc_col].fillna('').astype(str).str.strip()
+        if desc_col else pd.Series([''] * len(df), index=df.index)
+    )
+
+    return pd.DataFrame({
+        'timestamp': pd.to_datetime(df[ts_col]),
+        'merchant': merchant.values,
+        'description': description.values,
+        'amount': amount.values,
+        'source': source,
+    })
+
+
+def load_source_config(config_path: Path) -> List[dict]:
+    """Load optional additional source definitions from JSON."""
+    if not config_path.exists():
+        return []
+    with open(config_path, encoding='utf-8') as f:
+        data = json.load(f)
+    return data.get('additional_sources', [])
 
 
 def _find_alipay_header(csv_path: str) -> Tuple[int, str, bool]:
@@ -113,12 +232,12 @@ def parse_wechat_csv(csv_path: str) -> pd.DataFrame:
     })
 
 
-def resolve_raw_paths(base_path: Optional[Path] = None) -> Tuple[Optional[Path], Optional[Path]]:
+def resolve_raw_paths(base_path: Optional[Path] = None) -> Tuple[Optional[Path], Optional[Path], List[dict]]:
     """
-    Resolve default Alipay and WeChat paths under data/raw/.
+    Resolve default Alipay, WeChat, and optional extra sources under data/raw/.
 
     Returns:
-        (alipay_path or None, wechat_path or None)
+        (alipay_path or None, wechat_path or None, additional_source_configs)
     """
     base = base_path or Path(__file__).parent.parent
     raw_dir = base / 'data' / 'raw'
@@ -137,13 +256,29 @@ def resolve_raw_paths(base_path: Optional[Path] = None) -> Tuple[Optional[Path],
             wechat_path = candidate
             break
 
-    return alipay_path, wechat_path
+    config_path = raw_dir / 'source_config.json'
+    additional = load_source_config(config_path)
+
+    # Auto-discover bank/card CSVs when not listed in config
+    configured_paths = {entry.get('path', '') for entry in additional}
+    for name in ('bank.csv', 'credit_card.csv', 'bank_export.csv'):
+        if name in configured_paths:
+            continue
+        candidate = raw_dir / name
+        if candidate.exists():
+            source_label = 'credit_card' if 'credit' in name else 'bank'
+            additional.append({'path': name, 'source': source_label})
+
+    return alipay_path, wechat_path, additional
 
 
 def load_transactions(alipay_path: Optional[str] = None,
-                    wechat_path: Optional[str] = None) -> pd.DataFrame:
-    """Load and combine Alipay and WeChat transactions from CSV or Excel."""
+                    wechat_path: Optional[str] = None,
+                    additional_sources: Optional[List[dict]] = None,
+                    raw_dir: Optional[Path] = None) -> pd.DataFrame:
+    """Load and combine transactions from Alipay, WeChat, and optional bank/card exports."""
     dfs = []
+    raw_dir = raw_dir or Path(__file__).parent.parent / 'data' / 'raw'
 
     if alipay_path and Path(alipay_path).exists():
         try:
@@ -168,6 +303,26 @@ def load_transactions(alipay_path: Optional[str] = None,
         except Exception as e:
             print(f"  FAIL - Error: {e}")
 
+    for entry in additional_sources or []:
+        rel_path = entry.get('path', '')
+        full_path = raw_dir / rel_path if not Path(rel_path).is_absolute() else Path(rel_path)
+        if not full_path.exists():
+            print(f"Skipping missing source: {full_path}")
+            continue
+        try:
+            label = entry.get('source', 'bank')
+            print(f"Parsing {label} export ({full_path.name})...")
+            df_extra = parse_generic_bank_csv(
+                str(full_path),
+                source=label,
+                column_map=entry.get('column_map'),
+                encoding=entry.get('encoding'),
+            )
+            print(f"  OK - Loaded {len(df_extra)} transactions")
+            dfs.append(df_extra)
+        except Exception as e:
+            print(f"  FAIL - {full_path.name}: {e}")
+
     if not dfs:
         raise ValueError("Must provide at least one valid file path")
 
@@ -185,34 +340,36 @@ def save_processed(df: pd.DataFrame, output_path: str) -> None:
 
 if __name__ == '__main__':
     base_path = Path(__file__).parent.parent
-    alipay_path, wechat_path = resolve_raw_paths(base_path)
+    alipay_path, wechat_path, additional = resolve_raw_paths(base_path)
 
-    if not alipay_path and not wechat_path:
+    if not alipay_path and not wechat_path and not additional:
         print("Error: No raw files found in data/raw/")
-        print("  Expected: alipay.csv and/or raw-wechat.xlsx")
+        print("  Expected: alipay.csv, raw-wechat.xlsx, and/or bank.csv")
+        print("  Optional: data/raw/source_config.json for custom column mappings")
         raise SystemExit(1)
 
     print(f"Alipay: {alipay_path or '(not found)'}")
     print(f"WeChat: {wechat_path or '(not found)'}")
+    if additional:
+        print(f"Extra sources: {', '.join(e.get('path', '?') for e in additional)}")
 
     try:
         df = load_transactions(
             str(alipay_path) if alipay_path else None,
             str(wechat_path) if wechat_path else None,
+            additional_sources=additional,
+            raw_dir=base_path / 'data' / 'raw',
         )
 
         print(f"\n{'='*70}")
         print(f"Successfully loaded {len(df)} total transactions")
         print(f"Date range: {df['timestamp'].min().date()} to {df['timestamp'].max().date()}")
 
-        alipay_count = (df['source'] == 'alipay').sum()
-        wechat_count = (df['source'] == 'wechat').sum()
-        alipay_sum = df[df['source'] == 'alipay']['amount'].sum()
-        wechat_sum = df[df['source'] == 'wechat']['amount'].sum()
+        for src in sorted(df['source'].unique()):
+            src_df = df[df['source'] == src]
+            print(f"  - {src}: {len(src_df)} transactions (¥{src_df['amount'].sum():,.2f})")
 
         print(f"Total spend: {df['amount'].sum():,.2f}")
-        print(f"  - Alipay: {alipay_count} transactions ({alipay_sum:,.2f})")
-        print(f"  - WeChat: {wechat_count} transactions ({wechat_sum:,.2f})")
 
         print(f"\n{'='*70}")
         stats = df['amount'].describe()

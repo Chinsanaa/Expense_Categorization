@@ -4,6 +4,11 @@ Helper functions for dashboard: category mapping, budget lookups, etc.
 import json
 import pandas as pd
 
+from categories import ACTIVE_CATEGORIES, FORECAST_MONTHS
+
+# Re-export for dashboard imports
+__all__ = ['ACTIVE_CATEGORIES', 'FORECAST_MONTHS']
+
 # Map classified transaction categories to budget categories
 CATEGORY_MAPPING = {
     'Eating Out': 'Eating Out',
@@ -133,7 +138,10 @@ def calculate_ytd_vs_budget(df_transactions, budget_config):
     ytd_actual = df_trans.groupby('category')['amount'].sum()
 
     data = []
-    for category, cat_budget in budget_config['categories'].items():
+    for category in ACTIVE_CATEGORIES:
+        cat_budget = budget_config['categories'].get(category)
+        if not cat_budget:
+            continue
         actual = ytd_actual.get(category, 0)
         budget = cat_budget['annual_budget']
         variance = actual - budget
@@ -152,10 +160,10 @@ def calculate_ytd_vs_budget(df_transactions, budget_config):
 
 
 def get_all_categories_from_budget(budget_config):
-    """Get list of all categories from budget config."""
+    """Get list of active budget categories (9 total)."""
     if not budget_config:
         return []
-    return list(budget_config['categories'].keys())
+    return [c for c in ACTIVE_CATEGORIES if c in budget_config['categories']]
 
 
 def format_currency(value):
