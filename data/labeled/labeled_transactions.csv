@@ -325,7 +325,7 @@ timestamp,merchant,description,amount,source,category,labeled
 2025-11-06 17:34:40,滴滴出行,滴滴快车打车-蔡师傅-11月06日行程,14.5,alipay,Transportation,True
 2025-11-07 10:57:18,上海蕤盛工贸,上海蕤盛工贸有限公司-订单编号202511070341001616982419476,5.0,wechat,Groceries,True
 2025-11-07 14:01:47,上海地铁,东方体育中心-花木路,4.0,alipay,Transportation,True
-2025-11-07 15:56:16,蘇小柳,苏小柳小笼包研制院浦东嘉里城分院-点餐即支付-2594209870878189594,41.0,wechat,,False
+2025-11-07 15:56:16,蘇小柳,苏小柳小笼包研制院浦东嘉里城分院-点餐即支付-2594209870878189594,41.0,wechat,Eating Out,True
 2025-11-07 16:58:25,上海地铁,花木路-后滩,4.0,alipay,Transportation,True
 2025-11-07 17:18:12,荟选集市后滩店,条码支付-后滩店-M2403506000505022511070409185,44.7,wechat,Groceries,True
 2025-11-08 14:13:30,滴滴出行,滴滴快车打车-凌师傅-11月08日行程,14.5,alipay,Transportation,True
@@ -363,11 +363,11 @@ timestamp,merchant,description,amount,source,category,labeled
 2025-11-17 11:09:14,上海纽约大学,POS机扫微信二维码消费,28.0,wechat,Eating Out,True
 2025-11-17 11:09:52,上海纽约大学,POS机扫微信二维码消费,28.0,wechat,Eating Out,True
 2025-11-17 14:46:42,滴滴出行,特惠快车打车-胡师傅-11月17日行程,38.8,alipay,Transportation,True
-2025-11-17 16:02:09,喜茶,喜茶支付中心支付单,36.0,wechat,,False
+2025-11-17 16:02:09,喜茶,喜茶支付中心支付单,36.0,wechat,Eating Out,True
 2025-11-17 16:59:17,上海申通地铁资产经营管理有限公司,花木路-后滩,4.0,alipay,Transportation,True
 2025-11-17 17:48:59,上海纽约大学,POS机扫微信二维码消费,32.0,wechat,Eating Out,True
 2025-11-18 11:38:07,上海纽约大学,POS机扫微信二维码消费,32.0,wechat,Eating Out,True
-2025-11-18 18:40:29,必胜客,PHHSWX20022565982661049290990,34.9,wechat,,False
+2025-11-18 18:40:29,必胜客,PHHSWX20022565982661049290990,34.9,wechat,Eating Out,True
 2025-11-18 21:36:38,拼多多平台商户,商户单号XP2425111821100042253024002376,1.2,wechat,Shopping,True
 2025-11-18 21:57:03,拼多多平台商户,商户单号XP1725111821101035208719000915,24.6,wechat,Shopping,True
 2025-11-19 11:12:05,上海纽约大学,POS机扫微信二维码消费,18.0,wechat,Eating Out,True
@@ -436,7 +436,7 @@ timestamp,merchant,description,amount,source,category,labeled
 2025-12-08 11:09:02,上海纽约大学,POS机扫微信二维码消费,28.0,wechat,Eating Out,True
 2025-12-08 11:53:41,上海蕤盛工贸,上海蕤盛工贸有限公司-订单编号202512085786631616982419429,6.0,wechat,Groceries,True
 2025-12-08 14:50:04,滴滴出行,特惠快车打车-徐师傅-12月08日行程,35.2,alipay,Transportation,True
-2025-12-08 14:56:46,喜茶,喜茶支付中心支付单,14.0,wechat,,False
+2025-12-08 14:56:46,喜茶,喜茶支付中心支付单,14.0,wechat,Eating Out,True
 2025-12-08 17:03:21,滴滴出行,特惠快车打车-王师傅-12月08日行程,35.2,alipay,Transportation,True
 2025-12-08 20:40:32,美团,麦当劳＆麦咖啡（上海前滩31乐荟店）-美团App-25120811100300001301823136672535,29.8,wechat,Eating Out,True
 2025-12-09 11:28:40,上海纽约大学,POS机扫微信二维码消费,22.0,wechat,Eating Out,True
@@ -469,14 +469,14 @@ timestamp,merchant,description,amount,source,category,labeled
 2025-12-14 18:14:40,大黄鹅,宝矿力水特500ml-51828020-518280201765707273345,7.0,wechat,Groceries,True
 2025-12-15 10:53:39,上海纽约大学,POS机扫微信二维码消费,32.0,wechat,Eating Out,True
 2025-12-15 13:15:35,上海蕤盛工贸,上海蕤盛工贸有限公司-订单编号202512150865381616982419429,6.0,wechat,Groceries,True
-2025-12-15 21:27:17,KKV,KK-Store,39.5,wechat,Shopping,True
+2025-12-15 21:27:17,KKV,KK-Store,39.5,wechat,Groceries,True
 2025-12-15 22:56:29,Sydney Yuen,收钱码收款,107.0,alipay,Transfers & Gifts,True
 2025-12-15 23:43:26,滴滴出行,特惠快车打车-马师傅-12月15日行程,30.8,alipay,Transportation,True
 2025-12-16 00:25:39,喜士多,济明门市-pos1,17.5,wechat,Groceries,True
 2025-12-16 10:19:22,滴滴出行,特惠快车打车-冶师傅-12月16日行程,34.6,alipay,Transportation,True
 2025-12-16 11:25:02,麦当劳,上海金拱门食品有限公司,13.9,wechat,Eating Out,True
 2025-12-16 12:38:29,上海申通地铁资产经营管理有限公司,静安寺-南京东路,3.0,alipay,Transportation,True
-2025-12-16 13:07:05,JUNGLEplus广州动漫新城店,龙珠Z凉感眼罩-贝吉塔,29.0,wechat,,False
+2025-12-16 13:07:05,JUNGLEplus广州动漫新城店,龙珠Z凉感眼罩-贝吉塔,29.0,wechat,Transfers & Gifts,True
 2025-12-16 13:24:46,萨莉亚南京东路四店,上海萨莉亚餐饮有限公司扫码收款,78.0,wechat,Eating Out,True
 2025-12-16 14:00:37,蜜雪冰城,蜜雪冰城61900867店,8.0,wechat,,False
 2025-12-16 17:10:13,上海申通地铁资产经营管理有限公司,南京东路-后滩,4.0,alipay,Transportation,True
@@ -612,7 +612,7 @@ timestamp,merchant,description,amount,source,category,labeled
 2026-02-13 23:37:56,上海申通地铁资产经营管理有限公司,后滩-浦东1号2号航站楼,7.0,alipay,Transportation,True
 2026-02-19 23:14:41,淘宝平台商户,/,15.7,wechat,Shopping,True
 2026-02-20 21:39:36,淘宝平台商户,/,71.1,wechat,Shopping,True
-2026-02-22 04:13:51,中石化上海,中石化易捷便利店消费,15.0,wechat,,False
+2026-02-22 04:13:51,中石化上海,中石化易捷便利店消费,15.0,wechat,Groceries,True
 2026-02-22 10:18:48,汉堡王(上海地产城方耀华),BK31693门店_ATOM_SOK,25.5,alipay,Eating Out,True
 2026-02-23 11:06:38,上海蕤盛工贸,上海蕤盛工贸有限公司-订单编号202602231196651616982419476,6.0,wechat,Groceries,True
 2026-02-23 12:26:04,上海纽约大学,POS机扫微信二维码消费,5.0,wechat,Eating Out,True
@@ -641,11 +641,11 @@ timestamp,merchant,description,amount,source,category,labeled
 2026-03-01 15:34:01,荟选集市后滩店,后滩店-M2403506000505022603010234713,18.3,wechat,Groceries,True
 2026-03-02 12:22:06,上海纽约大学,POS机扫微信二维码消费,24.0,wechat,Eating Out,True
 2026-03-02 15:07:51,上海蕤盛工贸,上海蕤盛工贸有限公司-订单编号202603023405341616982419429,7.0,wechat,Groceries,True
-2026-03-02 17:28:28,聆动,卫生巾x1片,2.5,wechat,,False
+2026-03-02 17:28:28,聆动,卫生巾x1片,2.5,wechat,Groceries,True
 2026-03-02 17:58:28,淘宝闪购,赌上厨师职业生涯的炒饭锄禾蛋炒饭·炒面·炒粉(昌里店)外卖订单,23.3,alipay,Eating Out,True
 2026-03-02 20:28:32,美团,蜜雪冰城（杨南路店）-美团App-26030211100300001303958786045535,27.4,wechat,Eating Out,True
 2026-03-03 14:01:46,上海纽约大学,POS机扫微信二维码消费,8.0,wechat,Eating Out,True
-2026-03-03 19:04:25,聆动,卫生巾x1片,2.5,wechat,,False
+2026-03-03 19:04:25,聆动,卫生巾x1片,2.5,wechat,Groceries,True
 2026-03-03 19:41:59,美团,达美乐比萨（海阳西路店）-美团App-26030311100300001304091676700535,25.5,wechat,Eating Out,True
 2026-03-04 12:30:53,上海纽约大学,POS机扫微信二维码消费,18.0,wechat,Eating Out,True
 2026-03-04 12:31:30,上海纽约大学,POS机扫微信二维码消费,5.0,wechat,Eating Out,True
@@ -776,7 +776,7 @@ timestamp,merchant,description,amount,source,category,labeled
 2026-04-04 11:33:37,上海申通地铁资产经营管理有限公司,后滩-浦东1号2号航站楼,7.0,alipay,Transportation,True
 2026-04-04 11:46:05,上海香雪海国际贸易有限公司,上海香雪海国际贸易有限公司,9.8,wechat,,False
 2026-04-04 12:25:50,上海英和企业管理有限公司,上海英和企业管理有限公司,58.0,wechat,,False
-2026-04-04 13:00:19,霸王茶姬,CHAGEE霸王茶姬（上海浦东机场S2卫星厅国际出发禁区店）,22.0,wechat,,False
+2026-04-04 13:00:19,霸王茶姬,CHAGEE霸王茶姬（上海浦东机场S2卫星厅国际出发禁区店）,22.0,wechat,Eating Out,True
 2026-04-12 19:57:06,浦东机场,浦东机场,53.0,alipay,Other,True
 2026-04-12 21:45:16,上海申通地铁资产经营管理有限公司,浦东1号2号航站楼-后滩,7.0,alipay,Transportation,True
 2026-04-13 12:36:14,上海纽约大学,POS机扫微信二维码消费,25.0,wechat,Eating Out,True
@@ -829,7 +829,7 @@ timestamp,merchant,description,amount,source,category,labeled
 2026-04-28 14:01:38,上海蕤盛工贸,上海蕤盛工贸有限公司-订单编号202604280121261616982419429,5.0,wechat,Groceries,True
 2026-04-28 19:08:03,Margad,收款,10.0,alipay,Transfers & Gifts,True
 2026-04-29 12:37:54,上海纽约大学,POS机扫微信二维码消费,5.0,wechat,Eating Out,True
-2026-04-29 22:35:43,聆动电子科技,卫生巾x1片,2.5,wechat,,False
+2026-04-29 22:35:43,聆动电子科技,卫生巾x1片,2.5,wechat,Groceries,True
 2026-04-30 18:36:36,沪浙7-ELEVEN,7-ELEVEn上海信德REDEMPTION,6.5,wechat,Groceries,True
 2026-04-30 21:42:55,美团,Popeyes炸鸡·汉堡·奶昔(前滩公园巷店)-美团App-26043011100300001302896636611535,28.3,wechat,Eating Out,True
 2026-04-30 22:30:21,喜士多,济明门市-pos1,16.8,wechat,Groceries,True
@@ -871,8 +871,8 @@ timestamp,merchant,description,amount,source,category,labeled
 2026-05-11 21:58:16,哈啰出行,哈啰单车骑行,2.5,alipay,Transportation,True
 2026-05-11 21:59:36,高青西门市,高青西门市-pos1,8.5,alipay,Groceries,True
 2026-05-11 22:16:42,淘宝闪购,超级吃货卡,0.1,alipay,Shopping,True
-2026-05-12 07:44:34,上海纽约大学,POS机扫支付宝二维码消费,5.0,alipay,Other,True
-2026-05-12 07:46:24,上海纽约大学,POS机扫支付宝二维码消费,10.0,alipay,Other,True
+2026-05-12 07:44:34,上海纽约大学,POS机扫支付宝二维码消费,5.0,alipay,Eating Out,True
+2026-05-12 07:46:24,上海纽约大学,POS机扫支付宝二维码消费,10.0,alipay,Eating Out,True
 2026-05-12 13:06:09,麦当劳,上海金拱门食品有限公司,14.9,wechat,Eating Out,True
 2026-05-12 21:47:08,美团,HYADAS象牙塔·三明治俱乐部（前滩源店）-美团App-26051211100300001304814217722535,20.0,alipay,Eating Out,True
 2026-05-13 00:40:47,上海蕤盛工贸,上海蕤盛工贸有限公司-订单编号202605138886541669785520422,3.0,wechat,Groceries,True
@@ -886,7 +886,7 @@ timestamp,merchant,description,amount,source,category,labeled
 2026-05-13 22:48:53,喜士多,济明门市-pos1,35.5,wechat,Groceries,True
 2026-05-14 19:58:45,美团,肯德基炸鸡兄弟-韩式(昌里路店)-美团App-26051411100300001305084850390535,21.9,wechat,Eating Out,True
 2026-05-15 02:40:07,上海饱猫餐饮管理有限公司,Meow豹喵咖啡酒吧订单,48.0,wechat,Eating Out,True
-2026-05-15 03:09:46,中石化上海,中石化易捷便利店消费,18.8,wechat,,False
+2026-05-15 03:09:46,中石化上海,中石化易捷便利店消费,18.8,wechat,Groceries,True
 2026-05-15 17:04:31,橘柚梧桐,收款方备注:二维码收款,382.5,wechat,,False
 2026-05-15 17:23:32,橘柚梧桐,收款方备注:二维码收款,254.0,wechat,,False
 2026-05-15 17:55:20,上海蕤盛工贸,上海蕤盛工贸有限公司-订单编号202605158644971616982419524,3.0,wechat,Groceries,True
@@ -896,3 +896,5 @@ timestamp,merchant,description,amount,source,category,labeled
 2026-05-16 05:01:31,滴滴出行,特惠快车打车-唐师傅-05月16日行程,127.6,alipay,Transportation,True
 2026-05-16 05:12:16,春秋航空,行李收费,300.0,wechat,Other,True
 2026-05-16 06:22:19,叶浦都餐饮管理（上海）有限公司,08121点餐,130.0,wechat,Eating Out,True
+2026-01-18 15:45:29,绿联**店,【优惠价】绿联相机读卡器sd卡ccd多功能usb高速内存储卡typec适用苹果17佳能大疆索尼连接手机电脑两用tf多,29.9,alipay,Shopping,True
+2026-01-18 15:45:29,wa**店,waxkiss蜜蜡脱毛蜡纸低敏男女通用学生全身腋下腿毛四肢除毛去毛,14.8,alipay,Shopping,True

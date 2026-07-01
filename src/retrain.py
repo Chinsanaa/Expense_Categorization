@@ -103,7 +103,8 @@ def retrain_model():
             print(f"   {category:30s}: F1 {metrics['f1-score']:.3f}, Recall {metrics['recall']:.1%}, Precision {metrics['precision']:.1%}")
 
     # Save detailed report
-    report_path = 'TRAINING_REPORT.txt'
+    report_path = Path('data/reports/TRAINING_REPORT.txt')
+    report_path.parent.mkdir(parents=True, exist_ok=True)
     with open(report_path, 'w', encoding='utf-8') as f:
         f.write(f"RETRAINING REPORT — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write("="*70 + "\n\n")

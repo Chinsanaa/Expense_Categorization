@@ -81,13 +81,12 @@ file rather than leaving a stale record.
 
 ```
 /data/raw/              # original CSV exports, untouched
-/data/processed/        # normalized, merged, cleaned data
-/data/labeled/          # manually labeled training data
-/src/parse.py           # Alipay/WeChat CSV normalizers
-/src/segment.py         # jieba + tokenization helpers
-/src/train.py           # vectorizer + classifier training
-/src/classify.py        # apply trained model to new CSVs
-/src/visualize.py       # spending dashboards/charts
-context.md              # running project memory, update every session
-CLAUDE.md               # this file
+/data/processed/        # normalized + classified data, models
+/data/labeled/          # training labels + merchant rules
+/data/intermediate/     # pipeline stage artifacts
+/data/exports/          # Excel review exports
+/data/reports/          # training reports
+/output/                # generated charts and debug samples
+/src/                   # active pipeline scripts
+/_archive/              # old experiments and one-off scripts
 ```

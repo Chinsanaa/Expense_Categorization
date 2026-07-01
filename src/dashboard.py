@@ -1,6 +1,6 @@
 """
-Streamlit Dashboard for Personal Finance Categorizer
-Real-time spending analytics, budget tracking, anomaly detection
+Streamlit Dashboard — Personal Finance Categorizer
+Real-time spending monitoring with budget tracking and action planning.
 """
 import streamlit as st
 import pandas as pd
@@ -8,898 +8,850 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
-import joblib
 import sys
 from pathlib import Path
 
-# Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
-from dashboard_helpers import load_budget_config, get_budget_for_category, get_budget_type, calculate_ytd_vs_budget, get_status_badge, get_type_color
-from forecast import calculate_historical_patterns, project_spending, calculate_savings_projection
+from dashboard_helpers import (
+    load_budget_config,
+    calculate_ytd_vs_budget,
+    get_status_badge,
+    get_budget_type,
+    apply_chart_theme,
+    CHART_COLORS,
+)
+from forecast import (
+    calculate_historical_patterns,
+    project_spending,
+    calculate_savings_projection,
+)
+from merchant_display import display_merchant, add_display_names, aggregate_merchants
 
-# Page config
-st.set_page_config(page_title="Finance Dashboard", layout="wide", initial_sidebar_state="expanded")
+# ── Page config ──────────────────────────────────────────────────────────────
+st.set_page_config(
+    page_title="Finance Dashboard",
+    page_icon="💰",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
-# Load data (cached)
+# ── Custom CSS — clean dark theme, no sidebar, responsive KPI cards ──────────
+st.markdown("""
+<style>
+    /* Hide sidebar entirely */
+    [data-testid="stSidebar"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
+
+    /* Tighter top padding */
+    .block-container { padding-top: 1.5rem; max-width: 1400px; }
+
+    /* Header */
+    .dash-header { margin-bottom: 0.25rem; }
+    .dash-header h1 {
+        font-size: 1.75rem; font-weight: 700; color: #e8eaed;
+        margin: 0; letter-spacing: -0.02em;
+    }
+    .dash-subtitle { color: #8899a6; font-size: 0.85rem; margin-bottom: 1rem; }
+
+    /* KPI cards */
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+    }
+    @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 700px)  { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .kpi-card {
+        background: linear-gradient(145deg, #1a1d24 0%, #161920 100%);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 12px;
+        padding: 1rem 1.1rem;
+    }
+    .kpi-label {
+        font-size: 0.72rem; text-transform: uppercase;
+        letter-spacing: 0.06em; color: #8899a6; margin-bottom: 0.35rem;
+    }
+    .kpi-value {
+        font-size: 1.45rem; font-weight: 700; color: #e8eaed;
+        line-height: 1.2;
+    }
+    .kpi-delta { font-size: 0.78rem; margin-top: 0.3rem; }
+    .delta-up   { color: #e74c3c; }
+    .delta-down { color: #2ecc71; }
+    .delta-neutral { color: #8899a6; }
+    .accent-purple { color: #7c6af7; }
+    .accent-cyan   { color: #4fc3f7; }
+    .accent-green  { color: #2ecc71; }
+    .accent-orange { color: #f39c12; }
+
+    /* Section headers inside tabs */
+    .section-title {
+        font-size: 1.05rem; font-weight: 600; color: #e8eaed;
+        margin: 1.5rem 0 0.75rem 0; padding-bottom: 0.4rem;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* Filter bar */
+    .filter-hint { color: #8899a6; font-size: 0.8rem; }
+
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] { gap: 0.5rem; }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px 8px 0 0;
+        padding: 0.5rem 1.25rem;
+        font-weight: 500;
+    }
+
+    /* Footer */
+    .dash-footer {
+        text-align: center; color: #5a6570;
+        font-size: 0.75rem; padding: 1.5rem 0 0.5rem;
+        border-top: 1px solid rgba(255,255,255,0.05);
+        margin-top: 2rem;
+    }
+
+    /* Budget tab — 7 category cards in one row */
+    .budget-toolbar {
+        display: flex; align-items: center; justify-content: space-between;
+        flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;
+    }
+    .budget-summary-strip {
+        display: flex; gap: 1.5rem; flex-wrap: wrap;
+        background: rgba(124, 106, 247, 0.08);
+        border: 1px solid rgba(124, 106, 247, 0.18);
+        border-radius: 10px; padding: 0.65rem 1rem;
+        font-size: 0.82rem; color: #c8cdd3;
+    }
+    .budget-summary-strip strong { color: #e8eaed; }
+
+    .budget-row {
+        display: grid;
+        grid-template-columns: repeat(9, 1fr);
+        gap: 0.55rem;
+        margin-bottom: 0.5rem;
+    }
+    @media (max-width: 1400px) {
+        .budget-row { grid-template-columns: repeat(5, 1fr); }
+    }
+    @media (max-width: 900px) {
+        .budget-row { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    .budget-cat-card {
+        background: #1a1d24;
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 10px;
+        padding: 0.7rem 0.65rem 0.75rem;
+        min-width: 0;
+        display: flex; flex-direction: column; gap: 0.3rem;
+        transition: border-color 0.15s;
+    }
+    .budget-cat-card:hover { border-color: rgba(124, 106, 247, 0.35); }
+    .budget-cat-card.status-ok   { border-top: 3px solid #2ecc71; }
+    .budget-cat-card.status-warn { border-top: 3px solid #f39c12; }
+    .budget-cat-card.status-over { border-top: 3px solid #e74c3c; }
+
+    .bc-top {
+        display: flex; align-items: flex-start; justify-content: space-between;
+        gap: 0.25rem;
+    }
+    .bc-name {
+        font-size: 0.72rem; font-weight: 600; color: #e8eaed;
+        line-height: 1.25; word-break: break-word;
+    }
+    .bc-type {
+        font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.04em;
+        padding: 0.1rem 0.35rem; border-radius: 4px; flex-shrink: 0;
+        font-weight: 600;
+    }
+    .bc-type.need { background: rgba(231, 76, 60, 0.15); color: #e74c3c; }
+    .bc-type.want { background: rgba(124, 106, 247, 0.15); color: #7c6af7; }
+
+    .bc-amount {
+        font-size: 1.05rem; font-weight: 700; color: #e8eaed;
+        line-height: 1.1; margin-top: 0.15rem;
+    }
+    .bc-budget { font-size: 0.68rem; color: #8899a6; }
+
+    .bc-bar {
+        height: 5px; background: rgba(255,255,255,0.08);
+        border-radius: 3px; overflow: hidden; margin-top: 0.2rem;
+    }
+    .bc-fill {
+        height: 100%; border-radius: 3px;
+        transition: width 0.3s ease;
+    }
+    .bc-fill.ok   { background: linear-gradient(90deg, #27ae60, #2ecc71); }
+    .bc-fill.warn { background: linear-gradient(90deg, #e67e22, #f39c12); }
+    .bc-fill.over { background: linear-gradient(90deg, #c0392b, #e74c3c); }
+
+    .bc-footer {
+        display: flex; justify-content: space-between; align-items: center;
+        font-size: 0.65rem; color: #8899a6; margin-top: 0.1rem;
+    }
+    .bc-status { font-weight: 600; }
+    .bc-status.ok   { color: #2ecc71; }
+    .bc-status.warn { color: #f39c12; }
+    .bc-status.over { color: #e74c3c; }
+    .bc-remaining { color: #8899a6; }
+</style>
+""", unsafe_allow_html=True)
+
+# Fixed display order: essentials first, then discretionary
+BUDGET_CATEGORIES = [
+    'Groceries', 'Transportation', 'Utilities & Services',
+    'Eating Out', 'Shopping', 'Transfers & Gifts', 'Other',
+    'Saving', 'Investing',
+]
+
+CATEGORY_SHORT = {
+    'Groceries': 'Groceries',
+    'Transportation': 'Transit',
+    'Utilities & Services': 'Utilities',
+    'Eating Out': 'Eating Out',
+    'Shopping': 'Shopping',
+    'Transfers & Gifts': 'Transfers',
+    'Other': 'Other',
+    'Saving': 'Saving',
+    'Investing': 'Investing',
+}
+
+
+def get_monthly_budget_amount(budget_config, category, df_fallback):
+    """Monthly budget for a category; fall back to historical average."""
+    budget_amt = budget_config['categories'].get(category, {}).get('monthly_budget', 0)
+    if budget_amt and budget_amt > 0:
+        return float(budget_amt)
+    hist = df_fallback[df_fallback['category'] == category].groupby('month')['amount'].sum()
+    return float(hist.mean()) if len(hist) > 0 else 0.0
+
+
+def budget_status_class(pct, cat_type):
+    """Return (card_class, fill_class, status_class, status_text)."""
+    _, _, status_text = get_status_badge(pct, cat_type)
+    if pct >= 100:
+        return 'status-over', 'over', 'over', status_text
+    if pct >= 80:
+        return 'status-warn', 'warn', 'warn', status_text
+    return 'status-ok', 'ok', 'ok', status_text
+
+
+def build_budget_category_row(month_df, budget_config, df_all):
+    """Build HTML for category budget cards in one row."""
+    cards = []
+    on_track = 0
+    total_actual = 0.0
+    total_budget = 0.0
+
+    for cat in BUDGET_CATEGORIES:
+        actual = float(month_df[month_df['category'] == cat]['amount'].sum())
+        budget_amt = get_monthly_budget_amount(budget_config, cat, df_all)
+
+        if budget_amt <= 0:
+            pct = 0
+            card_cls, fill_cls, stat_cls = 'status-ok', 'ok', 'ok'
+            status_text = 'Not started'
+            remain_text = 'Starts next semester'
+            bar_pct = 0
+            on_track += 1
+        else:
+            pct = (actual / budget_amt * 100)
+            cat_type = get_budget_type(budget_config, cat) or 'Want'
+            card_cls, fill_cls, stat_cls, status_text = budget_status_class(pct, cat_type)
+            if pct < 100:
+                on_track += 1
+            bar_pct = min(pct, 100)
+            remaining = budget_amt - actual
+            remain_text = (
+                f"¥{remaining:,.0f} left" if remaining >= 0
+                else f"¥{abs(remaining):,.0f} over"
+            )
+
+        total_actual += actual
+        total_budget += budget_amt
+
+        cat_type = get_budget_type(budget_config, cat) or 'Need'
+        short = CATEGORY_SHORT.get(cat, cat)
+        type_cls = 'need' if cat_type == 'Need' else 'want'
+
+        cards.append(f"""
+        <div class="budget-cat-card {card_cls}">
+            <div class="bc-top">
+                <span class="bc-name">{short}</span>
+                <span class="bc-type {type_cls}">{cat_type}</span>
+            </div>
+            <div class="bc-amount">¥{actual:,.0f}</div>
+            <div class="bc-budget">of ¥{budget_amt:,.0f}</div>
+            <div class="bc-bar"><div class="bc-fill {fill_cls}" style="width:{bar_pct:.0f}%"></div></div>
+            <div class="bc-footer">
+                <span class="bc-status {stat_cls}">{pct:.0f}% · {status_text}</span>
+                <span class="bc-remaining">{remain_text}</span>
+            </div>
+        </div>""")
+
+    summary = {
+        'total_actual': total_actual,
+        'total_budget': total_budget,
+        'on_track': on_track,
+        'total_cats': len(BUDGET_CATEGORIES),
+        'overall_pct': (total_actual / total_budget * 100) if total_budget > 0 else 0,
+    }
+    return '<div class="budget-row">' + ''.join(cards) + '</div>', summary
+
+
+# ── Data loading ─────────────────────────────────────────────────────────────
+DATA_PATH = Path(__file__).parent.parent / 'data' / 'processed' / 'transactions_classified.csv'
+
+
 @st.cache_data
-def load_data():
-    df = pd.read_csv('data/processed/transactions_classified.csv')
+def load_data(file_mtime: float):
+    """Load classified transactions; cache invalidates when CSV is updated."""
+    df = pd.read_csv(DATA_PATH)
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df['month'] = df['timestamp'].dt.to_period('M')
     df['date'] = df['timestamp'].dt.date
+    df = normalize_categories(df)
     return df
 
-df = load_data()
 
-# Sidebar filters
-st.sidebar.markdown("### Filters & Settings")
+def normalize_categories(df: pd.DataFrame) -> pd.DataFrame:
+    """Fix known category patterns at load time (e.g. catering companies → Eating Out)."""
+    df = df.copy()
+    catering_mask = df['merchant'].str.contains('catering|餐饮', case=False, na=False)
+    df.loc[catering_mask, 'category'] = 'Eating Out'
+    return df
 
-# Date range
-min_date = df['timestamp'].min().date()
-max_date = df['timestamp'].max().date()
-date_range = st.sidebar.date_input(
-    "Date range",
-    value=(min_date, max_date),
-    min_value=min_date,
-    max_value=max_date
-)
-if len(date_range) == 2:
-    start_date, end_date = date_range
-    df_filtered = df[(df['date'] >= start_date) & (df['date'] <= end_date)].copy()
-else:
-    df_filtered = df.copy()
 
-# Category filter
-categories = st.sidebar.multiselect(
-    "Categories",
-    options=sorted(df['category'].unique()),
-    default=sorted(df['category'].unique())
-)
-df_filtered = df_filtered[df_filtered['category'].isin(categories)]
+def render_filters(df):
+    """Inline filter bar (replaces sidebar). Returns filtered DataFrame + meta."""
+    with st.expander("🔍 Filters", expanded=False):
+        c1, c2, c3, c4 = st.columns([2, 2, 1.5, 1.5])
+        min_date = df['timestamp'].min().date()
+        max_date = df['timestamp'].max().date()
 
-# Source filter
-sources = st.sidebar.multiselect(
-    "Payment source",
-    options=['alipay', 'wechat'],
-    default=['alipay', 'wechat']
-)
-df_filtered = df_filtered[df_filtered['source'].isin(sources)]
+        with c1:
+            date_range = st.date_input(
+                "Date range",
+                value=(min_date, max_date),
+                min_value=min_date,
+                max_value=max_date,
+            )
+        with c2:
+            categories = st.multiselect(
+                "Categories",
+                options=sorted(df['category'].unique()),
+                default=sorted(df['category'].unique()),
+            )
+        with c3:
+            source_options = sorted(df['source'].unique())
+            sources = st.multiselect(
+                "Payment source",
+                options=source_options,
+                default=source_options,
+                key=f"source_filter_{len(df)}",
+            )
+        with c4:
+            min_conf = st.slider("Min confidence", 0.0, 1.0, 0.0, 0.05)
 
-# Confidence threshold
-min_conf = st.sidebar.slider(
-    "Minimum confidence",
-    min_value=0.0,
-    max_value=1.0,
-    value=0.0,
-    step=0.05
-)
-df_filtered = df_filtered[df_filtered['confidence'] >= min_conf]
+    if isinstance(date_range, tuple) and len(date_range) == 2:
+        start_date, end_date = date_range
+    else:
+        start_date, end_date = min_date, max_date
 
-# Budget settings
-st.sidebar.markdown("### Budget Alerts (Monthly)")
-budget_settings = {}
-for cat in sorted(df['category'].unique()):
-    # Default budget based on average monthly spend for this category
-    avg_monthly = df[df['category'] == cat].groupby('month')['amount'].sum().mean()
-    budget_settings[cat] = st.sidebar.number_input(
-        f"{cat} budget (¥)",
-        min_value=0.0,
-        value=float(avg_monthly),
-        step=100.0
+    filtered = df[
+        (df['date'] >= start_date) &
+        (df['date'] <= end_date) &
+        (df['category'].isin(categories)) &
+        (df['source'].isin(sources)) &
+        (df['confidence'] >= min_conf)
+    ].copy()
+
+    return filtered, start_date, end_date
+
+
+def kpi_card(label, value, delta_text, delta_class="delta-neutral"):
+    return (
+        f'<div class="kpi-card">'
+        f'<div class="kpi-label">{label}</div>'
+        f'<div class="kpi-value">{value}</div>'
+        f'<div class="kpi-delta {delta_class}">{delta_text}</div>'
+        f'</div>'
     )
 
-# Show anomalies only
-show_anomalies_only = st.sidebar.checkbox("Show anomalies only (Tab 4)")
 
-# ===== MAIN CONTENT =====
+def compute_kpis(df_filtered, df_all, budget_config):
+    """Build the five headline metrics."""
+    total = df_filtered['amount'].sum()
+    days = (df_filtered['timestamp'].max() - df_filtered['timestamp'].min()).days + 1
 
-st.title("💰 Personal Finance Dashboard")
-st.markdown(f"**Data range:** {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')} | **Transactions:** {len(df_filtered):,}")
+    # Trend: compare to prior period of equal length
+    span = df_filtered['timestamp'].max() - df_filtered['timestamp'].min()
+    prior_end = df_filtered['timestamp'].min() - timedelta(days=1)
+    prior_start = prior_end - span
+    prior = df_all[
+        (df_all['timestamp'] >= prior_start) & (df_all['timestamp'] <= prior_end)
+    ]
+    prior_total = prior['amount'].sum() if len(prior) > 0 else 0
+    if prior_total > 0:
+        pct_change = (total - prior_total) / prior_total * 100
+        trend_text = f"{'↑' if pct_change > 0 else '↓'} {abs(pct_change):.1f}% vs prior period"
+        trend_class = "delta-up" if pct_change > 0 else "delta-down"
+    else:
+        trend_text = f"{len(df_filtered):,} transactions"
+        trend_class = "delta-neutral"
 
-# KPI Row
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    total_spend = df_filtered['amount'].sum()
-    st.metric("Total Spend", f"¥{total_spend:.0f}", delta=f"{len(df_filtered)} transactions")
+    # Budget status (YTD)
+    if budget_config:
+        ytd = calculate_ytd_vs_budget(df_filtered, budget_config)
+        total_budget = ytd['budget'].sum()
+        total_actual = ytd['ytd_actual'].sum()
+        pct_budget = (total_actual / total_budget * 100) if total_budget > 0 else 0
+        over = total_actual > total_budget
+        budget_value = f"¥{total_actual:,.0f}"
+        budget_delta = f"{'Over' if over else 'Under'} by ¥{abs(total_actual - total_budget):,.0f} ({pct_budget:.0f}%)"
+        budget_class = "delta-up" if over else "delta-down"
+    else:
+        budget_value = "—"
+        budget_delta = "No budget config"
+        budget_class = "delta-neutral"
 
-with col2:
-    avg_transaction = df_filtered['amount'].mean()
-    st.metric("Avg Transaction", f"¥{avg_transaction:.2f}", delta=f"Median: ¥{df_filtered['amount'].median():.2f}")
+    # Current month vs forecast
+    if budget_config and len(df_filtered) > 0:
+        patterns = calculate_historical_patterns(df_filtered)
+        forecast_df = project_spending(df_filtered, patterns, budget_config, forecast_months=9)
+        current_month_str = df_filtered['month'].max()
+        month_idx = list(df_filtered['month'].unique()).index(current_month_str)
+        # Use latest month actual
+        month_actual = df_filtered[df_filtered['month'] == current_month_str]['amount'].sum()
+        # Forecast total for next projected month (first month in forecast)
+        if len(forecast_df) > 0:
+            first_fc_month = forecast_df['month'].iloc[0]
+            month_forecast = forecast_df[forecast_df['month'] == first_fc_month]['projected_spend'].sum()
+            fc_delta = month_actual - month_forecast
+            fc_text = f"Actual ¥{month_actual:,.0f} vs forecast ¥{month_forecast:,.0f}"
+            fc_class = "delta-up" if fc_delta > 0 else "delta-down"
+            fc_value = str(current_month_str)
+        else:
+            fc_value = str(current_month_str)
+            fc_text = f"¥{month_actual:,.0f} this month"
+            fc_class = "delta-neutral"
+    else:
+        fc_value = "—"
+        fc_text = "No forecast data"
+        fc_class = "delta-neutral"
 
-with col3:
-    num_days = (df_filtered['timestamp'].max() - df_filtered['timestamp'].min()).days + 1
-    daily_avg = total_spend / max(num_days, 1)
-    st.metric("Daily Average", f"¥{daily_avg:.2f}", delta=f"{num_days} days")
+    # Largest category
+    cat_spend = df_filtered.groupby('category')['amount'].sum()
+    if len(cat_spend) > 0:
+        top_cat = cat_spend.idxmax()
+        top_amt = cat_spend.max()
+        top_pct = top_amt / total * 100 if total > 0 else 0
+        top_value = top_cat
+        top_delta = f"¥{top_amt:,.0f} ({top_pct:.0f}% of total)"
+        top_class = "delta-neutral"
+    else:
+        top_value = "—"
+        top_delta = "No data"
+        top_class = "delta-neutral"
 
-with col4:
-    top_cat = df_filtered.groupby('category')['amount'].sum().idxmax()
-    top_cat_spend = df_filtered.groupby('category')['amount'].sum().max()
-    st.metric("Top Category", top_cat, f"¥{top_cat_spend:.0f}")
+    # Savings potential
+    if budget_config:
+        savings = calculate_savings_projection(df_filtered, budget_config)
+        want_cats = [c for c, i in budget_config['categories'].items() if i['type'] == 'Want']
+        want_df = df_filtered[df_filtered['category'].isin(want_cats)]
+        months = max(len(df_filtered['month'].unique()), 1)
+        want_monthly = want_df['amount'].sum() / months
+        # Top-10 cuttable heuristic: 30% of discretionary
+        potential = want_monthly * 0.30
+        sav_value = f"¥{potential:,.0f}/mo"
+        gap = max(0, budget_config['saving_goal_monthly'] - savings['ytd_savings'] / max(savings['months_passed'], 1))
+        sav_delta = f"~30% discretionary cut · gap ¥{gap:.0f}/mo to goal"
+        sav_class = "delta-down"
+    else:
+        sav_value = "—"
+        sav_delta = "Load budget config"
+        sav_class = "delta-neutral"
 
-st.divider()
+    return [
+        ("Total Spend", f"¥{total:,.0f}", trend_text, trend_class),
+        ("Budget Status", budget_value, budget_delta, budget_class),
+        ("Monthly vs Forecast", fc_value, fc_text, fc_class),
+        ("Largest Category", top_value, top_delta, top_class),
+        ("Savings Potential", sav_value, sav_delta, sav_class),
+    ]
 
-# Tabs
-# Load budget config
-budget_config = load_budget_config('data/budget_config.json')
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(["📊 Overview", "🏪 Merchants", "💳 Budget", "🚨 Anomalies", "📋 Monthly", "🔮 Forecast", "💰 Savings", "🎯 Action Plan"])
-
-# ===== TAB 1: OVERVIEW =====
-with tab1:
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("### Monthly Spend by Category")
-        monthly_data = df_filtered.groupby(['month', 'category'])['amount'].sum().reset_index()
-        monthly_data['month'] = monthly_data['month'].astype(str)
-
-        fig_monthly = px.bar(
-            monthly_data,
-            x='month',
-            y='amount',
-            color='category',
-            title="Stacked Monthly Spending",
-            labels={'amount': 'Spend (¥)', 'month': 'Month'},
-            barmode='stack'
-        )
-        fig_monthly.update_layout(height=400, hovermode='x unified')
-        st.plotly_chart(fig_monthly, use_container_width=True)
-
-    with col2:
-        st.markdown("### Category Breakdown")
-        category_spend = df_filtered.groupby('category')['amount'].sum().reset_index()
-
-        fig_pie = px.pie(
-            category_spend,
-            values='amount',
-            names='category',
-            title="Share of Total Spending",
-            labels={'amount': 'Spend (¥)'}
-        )
-        fig_pie.update_layout(height=400)
-        st.plotly_chart(fig_pie, use_container_width=True)
-
-# ===== TAB 2: MERCHANTS =====
-with tab2:
-    col1, col2 = st.columns([1, 1])
-
-    with col1:
-        st.markdown("### Top 15 Merchants by Spend")
-        top_merchants = df_filtered.groupby('merchant')['amount'].sum().nlargest(15).reset_index()
-        top_merchants = top_merchants.sort_values('amount')
-
-        fig_merchants = px.bar(
-            top_merchants,
-            x='amount',
-            y='merchant',
-            orientation='h',
-            title="Top Merchants",
-            labels={'amount': 'Total Spend (¥)', 'merchant': ''},
-            color='amount',
-            color_continuous_scale='Blues'
-        )
-        fig_merchants.update_layout(height=450, showlegend=False)
-        st.plotly_chart(fig_merchants, use_container_width=True)
-
-    with col2:
-        st.markdown("### Cumulative Spend Over Time")
-        daily_data = df_filtered.sort_values('timestamp').copy()
-        daily_data['cumsum'] = daily_data['amount'].cumsum()
-
-        fig_cumsum = px.line(
-            daily_data,
-            x='timestamp',
-            y='cumsum',
-            title="Cumulative Spending",
-            labels={'cumsum': 'Cumulative (¥)', 'timestamp': 'Date'},
-            markers=True
-        )
-        fig_cumsum.update_layout(height=450, hovermode='x unified')
-        st.plotly_chart(fig_cumsum, use_container_width=True)
-
-# ===== TAB 3: BUDGET ALERTS =====
-with tab3:
-    # Get current month and previous months for comparison
-    current_month = df['month'].max()
-
-    st.markdown("### Budget Status — Current & Previous Months")
-
-    months_to_show = st.slider("Months to display", 1, 6, 3)
-    months_list = sorted(df['month'].unique())[-months_to_show:]
-
-    for month in months_list:
-        month_df = df[df['month'] == month]
-        month_str = str(month)
-
-        st.markdown(f"#### {month_str}")
-
-        cols = st.columns(len(categories))
-
-        for idx, cat in enumerate(sorted(categories)):
-            with cols[idx]:
-                cat_spend = month_df[month_df['category'] == cat]['amount'].sum()
-                budget = budget_settings[cat]
-                usage_pct = (cat_spend / budget * 100) if budget > 0 else 0
-
-                # Color coding
-                if usage_pct >= 100:
-                    color = "🔴"  # Red — over budget
-                    delta_color = "off"
-                elif usage_pct >= 80:
-                    color = "🟠"  # Orange — approaching budget
-                    delta_color = "off"
-                else:
-                    color = "🟢"  # Green — under budget
-                    delta_color = "off"
-
-                st.metric(
-                    f"{color} {cat}",
-                    f"¥{cat_spend:.0f}",
-                    delta=f"{usage_pct:.0f}% / ¥{budget:.0f}",
-                    delta_color=delta_color
-                )
-
-# ===== TAB 4: ANOMALIES =====
-with tab4:
-    st.markdown("### Anomaly Detection")
-    st.markdown("Transactions flagged by three criteria: unusually high value, one-off merchant with high amount, or low model confidence.")
-
+def detect_anomalies(df_filtered):
+    """Flag high-value, one-off, and low-confidence transactions."""
     anomalies = []
+    valid = df_filtered[~df_filtered['category'].isin(['???'])].copy()
 
-    # Detect high-value outliers using IQR method (Tukey's fences)
-    # More robust for right-skewed distributions than mean+2*std
-    for cat in df_filtered['category'].unique():
-        cat_data = df_filtered[df_filtered['category'] == cat]
-        if len(cat_data) > 0:
-            Q1 = cat_data['amount'].quantile(0.25)
-            Q3 = cat_data['amount'].quantile(0.75)
-            IQR = Q3 - Q1
-            threshold = Q3 + 1.5 * IQR
-            # Absolute floor: don't flag as anomaly unless truly large
-            threshold = max(threshold, 150)
+    for cat in valid['category'].unique():
+        cat_data = valid[valid['category'] == cat]
+        if len(cat_data) == 0:
+            continue
+        Q1, Q3 = cat_data['amount'].quantile(0.25), cat_data['amount'].quantile(0.75)
+        threshold = max(Q3 + 1.5 * (Q3 - Q1), 150)
+        high_value = cat_data[cat_data['amount'] > threshold].copy()
+        high_value['flag_reason'] = f"High value (>{threshold:.0f}¥)"
+        anomalies.append(high_value)
 
-            high_value = cat_data[cat_data['amount'] > threshold].copy()
-            high_value['flag_reason'] = f"High value (>{threshold:.0f}¥) for {cat}"
-            anomalies.append(high_value)
-
-    # Detect one-off merchants ONLY if amount exceeds 90th percentile of their category
-    # This targets genuinely unusual single purchases (e.g., ¥500 restaurant vs normal ¥30 meal)
-    merchant_counts = df_filtered['merchant'].value_counts()
+    merchant_counts = valid['merchant'].value_counts()
     one_off_merchants = merchant_counts[merchant_counts == 1].index
-    one_off_all = df_filtered[df_filtered['merchant'].isin(one_off_merchants)].copy()
-
+    one_off_all = valid[valid['merchant'].isin(one_off_merchants)].copy()
     if len(one_off_all) > 0:
-        # Filter to only those above their category's 90th percentile
-        one_off = []
+        chunks = []
         for cat in one_off_all['category'].unique():
-            cat_p90 = df_filtered[df_filtered['category'] == cat]['amount'].quantile(0.90)
-            cat_one_off = one_off_all[(one_off_all['category'] == cat) & (one_off_all['amount'] > cat_p90)]
-            if len(cat_one_off) > 0:
-                one_off.append(cat_one_off)
-
-        if one_off:
-            one_off = pd.concat(one_off, ignore_index=True)
-            one_off['flag_reason'] = "One-off merchant with very high spending"
+            cat_p90 = valid[valid['category'] == cat]['amount'].quantile(0.90)
+            chunk = one_off_all[(one_off_all['category'] == cat) & (one_off_all['amount'] > cat_p90)]
+            if len(chunk) > 0:
+                chunks.append(chunk)
+        if chunks:
+            one_off = pd.concat(chunks, ignore_index=True)
+            one_off['flag_reason'] = "One-off merchant, high spend"
             anomalies.append(one_off)
 
-    # Detect low-confidence predictions (model wasn't sure)
-    # Exclude "Other" category which naturally has low confidence (66.9% mean)
-    low_conf = df_filtered[
-        (df_filtered['confidence'] < 0.50) &
-        (df_filtered['category'] != 'Other')
+    low_conf = valid[
+        (valid['confidence'] < 0.50) & (valid['category'] != 'Other')
     ].copy()
     if len(low_conf) > 0:
-        low_conf['flag_reason'] = "Low confidence prediction (<50%)"
+        low_conf['flag_reason'] = "Low confidence (<50%)"
         anomalies.append(low_conf)
 
-    if anomalies:
-        anomaly_df = pd.concat(anomalies, ignore_index=True)
-        # Remove duplicates (same transaction flagged by multiple rules)
-        anomaly_df = anomaly_df.drop_duplicates(subset=['timestamp', 'merchant', 'amount'], keep='first')
-        anomaly_df = anomaly_df.sort_values('amount', ascending=False)
+    if not anomalies:
+        return pd.DataFrame()
+    result = pd.concat(anomalies, ignore_index=True)
+    return result.drop_duplicates(subset=['timestamp', 'merchant', 'amount'], keep='first')
 
-        st.markdown(f"**Found {len(anomaly_df)} anomalies**")
-        st.dataframe(
-            anomaly_df[['timestamp', 'merchant', 'description', 'amount', 'category', 'confidence', 'flag_reason']],
-            use_container_width=True,
-            hide_index=True
+
+# ── Load data ────────────────────────────────────────────────────────────────
+df = load_data(DATA_PATH.stat().st_mtime)
+budget_config = load_budget_config('data/budget_config.json')
+
+# ── Header ───────────────────────────────────────────────────────────────────
+st.markdown(
+    '<div class="dash-header"><h1>Personal Finance Dashboard</h1></div>',
+    unsafe_allow_html=True,
+)
+
+df_filtered, start_date, end_date = render_filters(df)
+
+st.markdown(
+    f'<div class="dash-subtitle">'
+    f'{start_date.strftime("%b %d, %Y")} — {end_date.strftime("%b %d, %Y")} · '
+    f'{len(df_filtered):,} transactions</div>',
+    unsafe_allow_html=True,
+)
+
+# ── KPI row ──────────────────────────────────────────────────────────────────
+kpis = compute_kpis(df_filtered, df, budget_config)
+kpi_html = '<div class="kpi-grid">' + ''.join(
+    kpi_card(l, v, d, c) for l, v, d, c in kpis
+) + '</div>'
+st.markdown(kpi_html, unsafe_allow_html=True)
+
+# ── Main tabs (3 priority tabs) ──────────────────────────────────────────────
+tab_overview, tab_budget, tab_action = st.tabs([
+    "📊 Spending Overview",
+    "💳 Budget Tracking",
+    "🎯 Action Plan",
+])
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 1 — SPENDING OVERVIEW
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_overview:
+    # Row 1: trend line + donut
+    col_a, col_b = st.columns([3, 2])
+
+    with col_a:
+        st.markdown('<div class="section-title">Monthly Spending Trend</div>', unsafe_allow_html=True)
+        monthly = df_filtered.groupby('month')['amount'].sum().reset_index()
+        monthly['month'] = monthly['month'].astype(str)
+        fig_trend = go.Figure()
+        fig_trend.add_trace(go.Scatter(
+            x=monthly['month'], y=monthly['amount'],
+            mode='lines+markers',
+            fill='tozeroy',
+            fillcolor='rgba(124, 106, 247, 0.15)',
+            line=dict(color='#7c6af7', width=2.5),
+            marker=dict(size=8),
+            name='Spend',
+        ))
+        fig_trend.update_layout(
+            xaxis_title='', yaxis_title='¥',
+            hovermode='x unified',
         )
+        apply_chart_theme(fig_trend, height=340)
+        st.plotly_chart(fig_trend, use_container_width=True)
 
-        # Download button
-        csv = anomaly_df.to_csv(index=False, encoding='utf-8-sig')
-        st.download_button(
-            label="Download anomalies as CSV",
-            data=csv,
-            file_name=f"anomalies_{start_date}_{end_date}.csv",
-            mime="text/csv"
+    with col_b:
+        st.markdown('<div class="section-title">Category Breakdown</div>', unsafe_allow_html=True)
+        cat_spend = df_filtered.groupby('category')['amount'].sum().reset_index()
+        fig_donut = px.pie(
+            cat_spend, values='amount', names='category',
+            hole=0.55, color_discrete_sequence=CHART_COLORS,
         )
-    else:
-        st.info("No anomalies detected in current filter range.")
+        fig_donut.update_traces(textposition='inside', textinfo='percent+label')
+        apply_chart_theme(fig_donut, height=340)
+        st.plotly_chart(fig_donut, use_container_width=True)
 
-# ===== TAB 5: MONTHLY REPORTS =====
-with tab5:
-    st.markdown("### Monthly Summary Report")
+    # Row 2: stacked bar by category + cumulative line
+    col_c, col_d = st.columns(2)
 
-    month_options = sorted([str(m) for m in df['month'].unique()], reverse=True)
-    selected_month = st.selectbox("Select month", month_options)
-
-    month_df = df[df['month'].astype(str) == selected_month]
-
-    # Summary table
-    st.markdown(f"#### {selected_month} Summary")
-    summary_table = month_df.groupby('category').agg(
-        Count=('amount', 'count'),
-        Total=('amount', 'sum'),
-        Average=('amount', 'mean'),
-        Median=('amount', 'median'),
-        Max=('amount', 'max')
-    ).reset_index()
-
-    summary_table['% of Total'] = (summary_table['Total'] / summary_table['Total'].sum() * 100).round(1)
-    summary_table = summary_table.sort_values('Total', ascending=False)
-
-    # Format for display
-    for col in ['Total', 'Average', 'Median', 'Max']:
-        summary_table[col] = summary_table[col].round(2)
-
-    st.dataframe(summary_table, use_container_width=True, hide_index=True)
-
-    # Expandable transaction list
-    with st.expander(f"View all {len(month_df)} transactions"):
-        st.dataframe(
-            month_df[['timestamp', 'merchant', 'description', 'amount', 'category', 'confidence', 'source']].sort_values('timestamp'),
-            use_container_width=True,
-            hide_index=True
+    with col_c:
+        st.markdown('<div class="section-title">Spend by Category (Monthly)</div>', unsafe_allow_html=True)
+        monthly_cat = df_filtered.groupby(['month', 'category'])['amount'].sum().reset_index()
+        monthly_cat['month'] = monthly_cat['month'].astype(str)
+        fig_stack = px.bar(
+            monthly_cat, x='month', y='amount', color='category',
+            barmode='stack', color_discrete_sequence=CHART_COLORS,
         )
+        apply_chart_theme(fig_stack, height=360)
+        st.plotly_chart(fig_stack, use_container_width=True)
 
-    # Download button
-    csv = month_df.to_csv(index=False, encoding='utf-8-sig')
-    st.download_button(
-        label=f"Download {selected_month} as CSV",
-        data=csv,
-        file_name=f"spending_{selected_month}.csv",
-        mime="text/csv"
+    with col_d:
+        st.markdown('<div class="section-title">Cumulative Spend</div>', unsafe_allow_html=True)
+        daily = df_filtered.sort_values('timestamp').copy()
+        daily['cumsum'] = daily['amount'].cumsum()
+        fig_cum = go.Figure()
+        fig_cum.add_trace(go.Scatter(
+            x=daily['timestamp'], y=daily['cumsum'],
+            mode='lines', line=dict(color='#4fc3f7', width=2),
+            fill='tozeroy', fillcolor='rgba(79, 195, 247, 0.1)',
+        ))
+        apply_chart_theme(fig_cum, height=360)
+        st.plotly_chart(fig_cum, use_container_width=True)
+
+    # Row 3: top merchants horizontal bar
+    st.markdown('<div class="section-title">Top Merchants</div>', unsafe_allow_html=True)
+    top_m = aggregate_merchants(df_filtered, n=12).sort_values('amount')
+    fig_merch = px.bar(
+        top_m, x='amount', y='merchant_display', orientation='h',
+        color='amount', color_continuous_scale=[[0, '#1a1d24'], [1, '#7c6af7']],
     )
+    fig_merch.update_layout(coloraxis_showscale=False, yaxis_title='')
+    apply_chart_theme(fig_merch, height=380)
+    st.plotly_chart(fig_merch, use_container_width=True)
 
-# ===== TAB 6: FORECASTING =====
-with tab6:
-    st.markdown("### Spending Forecast (Sep 2026 - May 2027)")
-    st.markdown("Based on your historical spending patterns and current trends")
+    # Monthly detail table
+    with st.expander("📋 Monthly detail report"):
+        month_options = sorted([str(m) for m in df['month'].unique()], reverse=True)
+        selected_month = st.selectbox("Select month", month_options, key="overview_month")
+        month_df = df[df['month'].astype(str) == selected_month]
+        summary = month_df.groupby('category').agg(
+            Count=('amount', 'count'), Total=('amount', 'sum'),
+            Average=('amount', 'mean'), Max=('amount', 'max'),
+        ).reset_index().sort_values('Total', ascending=False)
+        summary['% of Total'] = (summary['Total'] / summary['Total'].sum() * 100).round(1)
+        st.dataframe(summary, use_container_width=True, hide_index=True)
 
-    if budget_config:
-        # Calculate forecast
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 2 — BUDGET TRACKING
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_budget:
+    if not budget_config:
+        st.warning("Budget config not found. Run `python src/budget_loader.py` first.")
+    else:
+        ytd_df = calculate_ytd_vs_budget(df_filtered, budget_config)
+
+        # ── Category budget row (7 cards, one row) ───────────────────────────
+        st.markdown('<div class="section-title">Monthly Budget</div>', unsafe_allow_html=True)
+
+        month_options = sorted(df['month'].unique())
+        selected_budget_month = st.selectbox(
+            "Month",
+            month_options,
+            index=len(month_options) - 1,
+            format_func=lambda m: str(m),
+            key="budget_month_pick",
+        )
+
+        month_df = df[df['month'] == selected_budget_month]
+        row_html, summary = build_budget_category_row(month_df, budget_config, df)
+        st.markdown(
+            f'<div class="budget-summary-strip">'
+            f'<span><strong>¥{summary["total_actual"]:,.0f}</strong> spent'
+            f' &nbsp;·&nbsp; <strong>¥{summary["total_budget"]:,.0f}</strong> budget'
+            f' &nbsp;·&nbsp; <strong>{summary["overall_pct"]:.0f}%</strong> used</span>'
+            f'<span><strong>{summary["on_track"]}/{summary["total_cats"]}</strong> categories on track</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(row_html, unsafe_allow_html=True)
+
+        # YTD progress bars
+        st.markdown('<div class="section-title">Year-to-Date vs Annual Budget</div>', unsafe_allow_html=True)
+        ytd_sorted = ytd_df.sort_values('pct_of_budget', ascending=True)
+        fig_bars = go.Figure()
+        colors = []
+        for _, row in ytd_sorted.iterrows():
+            _, color, _ = get_status_badge(row['pct_of_budget'], row['type'])
+            colors.append(color)
+        fig_bars.add_trace(go.Bar(
+            y=ytd_sorted['category'], x=ytd_sorted['pct_of_budget'],
+            orientation='h', marker_color=colors,
+            text=[f"{p:.0f}%" for p in ytd_sorted['pct_of_budget']],
+            textposition='outside',
+        ))
+        fig_bars.add_vline(x=100, line_dash='dash', line_color='#8899a6', annotation_text='100%')
+        fig_bars.update_layout(xaxis_title='% of Annual Budget', yaxis_title='')
+        apply_chart_theme(fig_bars, height=max(300, len(ytd_sorted) * 32))
+        st.plotly_chart(fig_bars, use_container_width=True)
+
+        # Forecast section
+        st.markdown('<div class="section-title">Spending Forecast</div>', unsafe_allow_html=True)
         patterns = calculate_historical_patterns(df_filtered)
         forecast_df = project_spending(df_filtered, patterns, budget_config, forecast_months=9)
 
-        # Month selector
-        months = ['Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May']
-        selected_month_forecast = st.selectbox("Select month", months, key="forecast_month")
-
-        month_forecast = forecast_df[forecast_df['month'] == selected_month_forecast].copy()
-
-        col1, col2 = st.columns([1.5, 1])
-
-        with col1:
-            # Forecast table
-            display_cols = ['category', 'type', 'projected_spend', 'budget', 'variance', 'pct_of_budget', 'risk']
-            month_forecast_display = month_forecast[display_cols].copy()
-            month_forecast_display.columns = ['Category', 'Type', 'Projected', 'Budget', 'Variance', '% of Budget', 'Risk']
-
-            # Format numbers
-            for col in ['Projected', 'Budget', 'Variance']:
-                month_forecast_display[col] = month_forecast_display[col].apply(lambda x: f"¥{x:.0f}")
-            month_forecast_display['% of Budget'] = month_forecast_display['% of Budget'].apply(lambda x: f"{x:.0f}%")
-
-            st.dataframe(month_forecast_display, use_container_width=True, hide_index=True)
-
-        with col2:
-            # Risk summary
-            st.markdown("**Risk Distribution**")
-            risk_counts = month_forecast['risk'].value_counts()
-            fig_risk = px.pie(
-                values=risk_counts.values,
-                names=risk_counts.index,
-                color_discrete_sequence=['#00CC96', '#FFA15A', '#EF553B'],
-                title="Risk Levels"
+        fc_col1, fc_col2 = st.columns([2, 1])
+        with fc_col1:
+            heatmap_data = forecast_df.pivot_table(
+                values='pct_of_budget', index='category', columns='month', aggfunc='mean',
             )
-            fig_risk.update_layout(height=300, showlegend=True)
+            fig_heat = go.Figure(data=go.Heatmap(
+                z=heatmap_data.values,
+                x=heatmap_data.columns, y=heatmap_data.index,
+                colorscale=[[0, '#2ecc71'], [0.5, '#f39c12'], [1, '#e74c3c']],
+                zmid=100, text=np.round(heatmap_data.values, 0),
+                texttemplate='%{text}%', textfont=dict(size=10),
+                colorbar=dict(title='% Budget'),
+            ))
+            apply_chart_theme(fig_heat, height=400)
+            st.plotly_chart(fig_heat, use_container_width=True)
+
+        with fc_col2:
+            months_fc = forecast_df['month'].unique()
+            selected_fc = st.selectbox("Forecast month", months_fc, key="fc_month")
+            month_fc = forecast_df[forecast_df['month'] == selected_fc]
+            risk_counts = month_fc['risk'].value_counts()
+            fig_risk = px.pie(
+                values=risk_counts.values, names=risk_counts.index,
+                color_discrete_sequence=['#2ecc71', '#f39c12', '#e74c3c'],
+                hole=0.4,
+            )
+            apply_chart_theme(fig_risk, height=300)
             st.plotly_chart(fig_risk, use_container_width=True)
 
-        # Full year projection heatmap
-        st.markdown("### Full Year Projection (Sep-May)")
-        heatmap_data = forecast_df.pivot_table(
-            values='pct_of_budget',
-            index='category',
-            columns='month',
-            aggfunc='mean'
-        )
-
-        fig_heatmap = go.Figure(data=go.Heatmap(
-            z=heatmap_data.values,
-            x=heatmap_data.columns,
-            y=heatmap_data.index,
-            colorscale='RdYlGn_r',
-            zmid=100,
-            text=np.round(heatmap_data.values, 0),
-            texttemplate='%{text:.0f}%',
-            textfont={"size": 10},
-            colorbar=dict(title="% of Budget")
-        ))
-        fig_heatmap.update_layout(title="Monthly Forecast as % of Budget", height=400)
-        st.plotly_chart(fig_heatmap, use_container_width=True)
-
-    else:
-        st.warning("Budget configuration not loaded. Run `python src/budget_loader.py` first.")
-
-# ===== TAB 7: SAVINGS & INCOME =====
-with tab7:
-    st.markdown("### Savings & Income Tracking")
-
-    if budget_config:
-        # Calculate savings projection
+        # Savings tracker
+        st.markdown('<div class="section-title">Savings Progress</div>', unsafe_allow_html=True)
         savings = calculate_savings_projection(df_filtered, budget_config)
+        s1, s2, s3, s4 = st.columns(4)
+        s1.metric("Monthly Income", f"¥{budget_config['income']:,.0f}")
+        s2.metric("YTD Savings", f"¥{savings['ytd_savings']:,.0f}",
+                  f"{savings['ytd_savings_pct']:.1f}% of income")
+        s3.metric("Monthly Goal", f"¥{budget_config['saving_goal_monthly']:,.0f}")
+        status = "On track" if savings['on_track'] else "At risk"
+        s4.metric("Year-End Projection", f"¥{savings['projected_year_end_savings']:,.0f}", status)
 
-        col1, col2, col3, col4 = st.columns(4)
+        goal = budget_config['saving_goal_annual']
+        projected = savings['projected_year_end_savings']
+        fig_prog = go.Figure()
+        fig_prog.add_trace(go.Bar(
+            y=['Goal'], x=[goal], orientation='h',
+            marker=dict(color='rgba(255,255,255,0.08)'), showlegend=False,
+        ))
+        fig_prog.add_trace(go.Bar(
+            y=['Projected'], x=[projected], orientation='h',
+            marker=dict(color='#2ecc71' if savings['on_track'] else '#f39c12'),
+            text=f"¥{projected:,.0f}", textposition='auto', showlegend=False,
+        ))
+        apply_chart_theme(fig_prog, height=120)
+        st.plotly_chart(fig_prog, use_container_width=True)
 
-        with col1:
-            st.metric(
-                "Monthly Income",
-                f"¥{budget_config['income']:.0f}",
-                delta=f"Annual: ¥{budget_config['income']*12:.0f}"
-            )
-
-        with col2:
-            st.metric(
-                "YTD Savings",
-                f"¥{savings['ytd_savings']:.0f}",
-                delta=f"{savings['ytd_savings_pct']:.1f}% of income"
-            )
-
-        with col3:
-            st.metric(
-                "Savings Goal",
-                f"¥{budget_config['saving_goal_monthly']:.0f}/month",
-                delta=f"¥{budget_config['saving_goal_annual']:.0f}/year"
-            )
-
-        with col4:
-            status = "✅ On Track" if savings['on_track'] else "⚠️ At Risk"
-            st.metric(
-                "Year-End Projection",
-                f"¥{savings['projected_year_end_savings']:.0f}",
-                delta=status
-            )
-
-        st.divider()
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.markdown("### Savings Progress")
-
-            # Progress meter
-            goal = budget_config['saving_goal_annual']
-            projected = savings['projected_year_end_savings']
-            progress_pct = min((projected / goal * 100), 120) if goal > 0 else 0
-
-            # Create progress bar using plotly
-            fig_progress = go.Figure(data=[
-                go.Bar(
-                    y=['Savings Goal'],
-                    x=[goal],
-                    orientation='h',
-                    marker=dict(color='rgba(200,200,200,0.3)'),
-                    name='Goal',
-                    showlegend=False
-                ),
-                go.Bar(
-                    y=['Savings Goal'],
-                    x=[projected],
-                    orientation='h',
-                    marker=dict(color='#00CC96' if savings['on_track'] else '#FFA15A'),
-                    name='Projected',
-                    showlegend=False,
-                    text=f"¥{projected:.0f}",
-                    textposition='auto'
-                )
-            ])
-            fig_progress.update_layout(
-                barmode='overlay',
-                height=150,
-                margin=dict(l=0, r=0, t=0, b=0),
-                xaxis_title="Amount (¥)",
-                yaxis_title=""
-            )
-            st.plotly_chart(fig_progress, use_container_width=True)
-
-            # Monthly breakdown
-            st.markdown("**Monthly Breakdown**")
-            breakdown_data = {
-                'Need Spending': df_filtered[df_filtered['category'].isin(['Groceries', 'Transportation'])]['amount'].sum(),
-                'Want Spending': df_filtered[df_filtered['category'].isin(['Eating Out', 'Shopping'])]['amount'].sum(),
-                'Savings': savings['ytd_savings']
-            }
-
-            fig_breakdown = px.pie(
-                values=breakdown_data.values(),
-                names=breakdown_data.keys(),
-                color_discrete_sequence=['#EF553B', '#636EFA', '#00CC96'],
-                title="YTD Allocation"
-            )
-            fig_breakdown.update_layout(height=300)
-            st.plotly_chart(fig_breakdown, use_container_width=True)
-
-        with col2:
-            st.markdown("### Spending Trend")
-
-            # Line chart: cumulative savings over time
-            df_daily = df_filtered.sort_values('timestamp').copy()
-            df_daily['cumsum'] = df_daily['amount'].cumsum()
-
-            # Calculate expected savings trajectory
-            days_elapsed = (df_daily['timestamp'].max() - df_daily['timestamp'].min()).days + 1
-            total_days = 365
-            expected_daily = budget_config['saving_goal_annual'] / total_days
-            df_daily['expected_cumsum'] = expected_daily * (df_daily['timestamp'] - df_daily['timestamp'].min()).dt.days
-
-            fig_savings_trend = go.Figure()
-
-            fig_savings_trend.add_trace(go.Scatter(
-                x=df_daily['timestamp'],
-                y=savings['ytd_income'] - df_daily['cumsum'],
-                fill='tozeroy',
-                name='Actual Savings',
-                line=dict(color='#00CC96'),
-                hovertemplate='%{x|%Y-%m-%d}<br>¥%{y:.2f}<extra></extra>'
-            ))
-
-            fig_savings_trend.update_layout(
-                title="Cumulative Savings Over Time",
-                xaxis_title="Date",
-                yaxis_title="Savings (¥)",
-                hovermode='x unified',
-                height=350
-            )
-            st.plotly_chart(fig_savings_trend, use_container_width=True)
-
-            # Summary stats
-            st.markdown("**Summary**")
-            st.write(f"""
-            - **Days with data**: {savings['months_passed']} months (~{days_elapsed} days)
-            - **Average monthly spend**: ¥{savings['avg_monthly_spend']:.2f}
-            - **Average monthly savings**: ¥{savings['ytd_savings']/savings['months_passed']:.2f}
-            - **Projected remainder**: ¥{savings['projected_total_spend'] - savings['ytd_spend']:.2f} ({12-savings['months_passed']} months)
-            - **Variance to goal**: ¥{savings['projected_vs_goal']:.2f}
-            """)
-
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 3 — ACTION PLAN
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_action:
+    if not budget_config:
+        st.warning("Budget config required for action planning.")
     else:
-        st.warning("Budget configuration not loaded.")
+        want_categories = [
+            c for c, info in budget_config['categories'].items() if info['type'] == 'Want'
+        ]
+        df_monthly = df_filtered.copy()
 
-# ===== TAB 8: ACTION PLAN =====
-with tab8:
-    st.markdown("### Decision-Making Dashboard: Cut Non-Essential Costs & Hit Savings Goals")
-
-    # Feature 1: Need vs Want Efficiency Score
-    st.markdown("## 1️⃣ Need vs Want Efficiency Score")
-    st.markdown("Monthly breakdown: what % of your spend is discretionary (Want) vs essential (Need)?")
-
-    # Calculate Want categories from budget_config
-    want_categories = [cat for cat, info in budget_config['categories'].items() if info['type'] == 'Want']
-    df_monthly = df_filtered.copy()
-    df_monthly['month'] = df_monthly['timestamp'].dt.to_period('M')
-
-    efficiency_data = []
-    for month in sorted(df_monthly['month'].unique()):
-        month_df = df_monthly[df_monthly['month'] == month]
-        total_spend = month_df['amount'].sum()
-        want_spend = month_df[month_df['category'].isin(want_categories)]['amount'].sum()
-        need_spend = month_df[~month_df['category'].isin(want_categories)]['amount'].sum()
-
-        want_pct = (want_spend / total_spend * 100) if total_spend > 0 else 0
-        need_pct = (need_spend / total_spend * 100) if total_spend > 0 else 0
-
-        # Calculate savings gap
-        monthly_savings = budget_config['income'] - total_spend
-        savings_goal = budget_config['saving_goal_monthly']
-        savings_gap = max(0, savings_goal - monthly_savings)
-
-        efficiency_data.append({
-            'month': str(month),
-            'total_spend': total_spend,
-            'need_spend': need_spend,
-            'want_spend': want_spend,
-            'need_pct': need_pct,
-            'want_pct': want_pct,
-            'monthly_savings': monthly_savings,
-            'savings_gap': savings_gap,
-            'flagged': want_pct > 40
-        })
-
-    efficiency_df = pd.DataFrame(efficiency_data)
-
-    # Stacked bar chart: Need / Want / Gap
-    fig_efficiency = go.Figure()
-
-    fig_efficiency.add_trace(go.Bar(
-        x=efficiency_df['month'],
-        y=efficiency_df['need_spend'],
-        name='Need (Essential)',
-        marker=dict(color='#EF553B')
-    ))
-
-    fig_efficiency.add_trace(go.Bar(
-        x=efficiency_df['month'],
-        y=efficiency_df['want_spend'],
-        name='Want (Discretionary)',
-        marker=dict(color='#636EFA')
-    ))
-
-    fig_efficiency.add_trace(go.Bar(
-        x=efficiency_df['month'],
-        y=efficiency_df['savings_gap'],
-        name='Gap to ¥600 Savings Goal',
-        marker=dict(color='#FFA15A', opacity=0.6)
-    ))
-
-    fig_efficiency.update_layout(
-        barmode='stack',
-        title='Monthly Need/Want Breakdown + Savings Gap',
-        xaxis_title='Month',
-        yaxis_title='Amount (¥)',
-        hovermode='x unified',
-        height=400
-    )
-    st.plotly_chart(fig_efficiency, use_container_width=True)
-
-    # Efficiency table
-    st.markdown("### Monthly Efficiency Summary")
-    efficiency_display = efficiency_df[[
-        'month', 'total_spend', 'need_pct', 'want_pct', 'monthly_savings', 'savings_gap'
-    ]].copy()
-    efficiency_display.columns = ['Month', 'Total Spend', 'Need %', 'Want %', 'Savings', 'Gap to Goal']
-    efficiency_display['Flag'] = efficiency_df['flagged'].apply(lambda x: '🚩 >40% Want' if x else '✅')
-
-    for col in ['Total Spend', 'Savings', 'Gap to Goal']:
-        efficiency_display[col] = efficiency_display[col].apply(lambda x: f"¥{x:.0f}")
-
-    for col in ['Need %', 'Want %']:
-        efficiency_display[col] = efficiency_display[col].apply(lambda x: f"{x:.0f}%")
-
-    st.dataframe(efficiency_display, use_container_width=True, hide_index=True)
-
-    st.divider()
-
-    # Feature 2: Top 10 Cuttable Transactions
-    st.markdown("## 2️⃣ Top 10 Cuttable Merchants (by Monthly Impact)")
-    st.markdown("Ranked by recurring/high-spend discretionary merchants you could reduce without losing essentials.")
-
-    want_df = df_filtered[df_filtered['category'].isin(want_categories)].copy()
-
-    # Calculate monthly impact and recurring pattern for each merchant
-    if len(want_df) > 0:
-        months_in_data = (df_filtered['timestamp'].max() - df_filtered['timestamp'].min()).days / 30
-
-        merchant_impact = []
-        for merchant in want_df['merchant'].unique():
-            merchant_txns = want_df[want_df['merchant'] == merchant]
-            total_spend = merchant_txns['amount'].sum()
-            visit_count = len(merchant_txns)
-            avg_per_visit = merchant_txns['amount'].mean()
-            monthly_impact = total_spend / max(months_in_data, 1)
-
-            # Check if recurring (3+ visits with consistent amounts)
-            is_recurring = False
-            if visit_count >= 3:
-                amount_std = merchant_txns['amount'].std()
-                cv = amount_std / avg_per_visit if avg_per_visit > 0 else 0
-                is_recurring = cv < 0.20
-
-            merchant_impact.append({
-                'merchant': merchant,
-                'total_spend': total_spend,
-                'visit_count': visit_count,
-                'avg_per_visit': avg_per_visit,
-                'monthly_impact': monthly_impact,
-                'is_recurring': is_recurring
+        # Need vs Want efficiency
+        st.markdown('<div class="section-title">Need vs Want Breakdown</div>', unsafe_allow_html=True)
+        efficiency_data = []
+        for month in sorted(df_monthly['month'].unique()):
+            mdf = df_monthly[df_monthly['month'] == month]
+            total_s = mdf['amount'].sum()
+            want_s = mdf[mdf['category'].isin(want_categories)]['amount'].sum()
+            need_s = total_s - want_s
+            monthly_savings = budget_config['income'] - total_s
+            savings_gap = max(0, budget_config['saving_goal_monthly'] - monthly_savings)
+            efficiency_data.append({
+                'month': str(month), 'need_spend': need_s, 'want_spend': want_s,
+                'savings_gap': savings_gap,
             })
+        eff_df = pd.DataFrame(efficiency_data)
 
-        cuttable_df = pd.DataFrame(merchant_impact).sort_values('monthly_impact', ascending=False).head(10)
+        fig_eff = go.Figure()
+        fig_eff.add_trace(go.Bar(x=eff_df['month'], y=eff_df['need_spend'],
+                                  name='Need', marker_color='#e74c3c'))
+        fig_eff.add_trace(go.Bar(x=eff_df['month'], y=eff_df['want_spend'],
+                                  name='Want', marker_color='#7c6af7'))
+        fig_eff.add_trace(go.Bar(x=eff_df['month'], y=eff_df['savings_gap'],
+                                  name='Savings gap', marker_color='#f39c12', opacity=0.5))
+        fig_eff.update_layout(barmode='stack', hovermode='x unified')
+        apply_chart_theme(fig_eff, height=360)
+        st.plotly_chart(fig_eff, use_container_width=True)
 
-        cuttable_display = cuttable_df[[
-            'merchant', 'monthly_impact', 'total_spend', 'visit_count', 'avg_per_visit', 'is_recurring'
-        ]].copy()
-        cuttable_display.columns = ['Merchant', 'Monthly Impact (¥)', 'Total Spend (¥)', 'Visits', 'Avg per Visit (¥)', 'Recurring?']
-
-        for col in ['Monthly Impact (¥)', 'Total Spend (¥)', 'Avg per Visit (¥)']:
-            cuttable_display[col] = cuttable_display[col].apply(lambda x: f"¥{x:.0f}")
-
-        cuttable_display['Recurring?'] = cuttable_display['Recurring?'].apply(lambda x: '🔁 Yes' if x else '—')
-
-        st.dataframe(cuttable_display, use_container_width=True, hide_index=True)
-
-        cumulative_impact = cuttable_df['monthly_impact'].sum()
-        st.markdown(f"**Top 10 combined monthly impact:** ¥{cumulative_impact:.0f}/month ({cumulative_impact*12:.0f}/year)")
-    else:
-        st.info("No Want category transactions in current date range.")
-
-    st.divider()
-
-    # Feature 3: Savings Gap Calculator (Interactive)
-    st.markdown("## 3️⃣ Savings Gap Calculator: What-If Scenarios")
-    st.markdown("Adjust discretionary spending below to see impact on year-end savings projection.")
-
-    col1, col2 = st.columns([1, 1.2])
-
-    with col1:
-        st.markdown("### Cut by Category")
-
-        # Get current monthly spend by Want category
-        want_monthly_spend = {}
-        for cat in want_categories:
-            cat_spend = df_monthly[df_monthly['category'] == cat]['amount'].sum()
-            cat_months = len(df_monthly['month'].unique())
-            want_monthly_spend[cat] = cat_spend / max(cat_months, 1) if cat_months > 0 else 0
-
-        # Sliders for each Want category
-        cut_fractions = {}
-        for cat in sorted(want_categories):
-            current_avg = want_monthly_spend[cat]
-            st.markdown(f"**{cat}** (avg ¥{current_avg:.0f}/mo)")
-            cut_pct = st.slider(
-                f"Cut {cat}",
-                min_value=0,
-                max_value=50,
-                value=0,
-                step=5,
-                label_visibility='collapsed',
-                key=f"slider_{cat}"
+        # Cuttable merchants
+        st.markdown('<div class="section-title">Top Cuttable Merchants</div>', unsafe_allow_html=True)
+        want_df = df_filtered[df_filtered['category'].isin(want_categories)]
+        if len(want_df) > 0:
+            months_in_data = max((df_filtered['timestamp'].max() - df_filtered['timestamp'].min()).days / 30, 1)
+            impacts = []
+            for merchant in want_df['merchant'].unique():
+                mtx = want_df[want_df['merchant'] == merchant]
+                total_s = mtx['amount'].sum()
+                impacts.append({
+                    'merchant': merchant,
+                    'monthly_impact': total_s / months_in_data,
+                    'visits': len(mtx),
+                    'total': total_s,
+                })
+            cut_df = pd.DataFrame(impacts).sort_values('monthly_impact', ascending=False)
+            cut_df = add_display_names(cut_df)
+            cut_df = (
+                cut_df.groupby('merchant_display', as_index=False)
+                .agg(monthly_impact=('monthly_impact', 'sum'), visits=('visits', 'sum'))
+                .nlargest(10, 'monthly_impact')
             )
-            cut_fractions[cat] = cut_pct / 100.0
+            fig_cut = px.bar(
+                cut_df.sort_values('monthly_impact'),
+                x='monthly_impact', y='merchant_display', orientation='h',
+                color='monthly_impact',
+                color_continuous_scale=[[0, '#1a1d24'], [1, '#f39c12']],
+            )
+            fig_cut.update_layout(coloraxis_showscale=False, yaxis_title='', xaxis_title='¥/month')
+            apply_chart_theme(fig_cut, height=360)
+            st.plotly_chart(fig_cut, use_container_width=True)
+            total_cut = cut_df['monthly_impact'].sum()
+            st.caption(f"Top 10 combined: **¥{total_cut:,.0f}/month** (¥{total_cut * 12:,.0f}/year)")
 
-    with col2:
-        st.markdown("### Projected Year-End Savings")
-
-        # Baseline savings (from calculate_savings_projection)
-        baseline_savings = calculate_savings_projection(df_filtered, budget_config)
-        baseline_projected = baseline_savings['projected_year_end_savings']
-
-        # Calculate adjusted savings with cuts applied
-        ytd_spend = df_filtered['amount'].sum()
-        ytd_income = baseline_savings['ytd_income']
-        months_passed = baseline_savings['months_passed']
-        remaining_months = 12 - months_passed
-
-        # Apply cuts proportionally
-        total_want_monthly = sum(want_monthly_spend.values())
-        adjusted_monthly_spend = 0
-
-        for cat in df_filtered['category'].unique():
-            if cat in want_categories:
-                cut_fraction = cut_fractions.get(cat, 0)
-                cat_monthly = want_monthly_spend.get(cat, 0)
-                adjusted_monthly_spend += cat_monthly * (1 - cut_fraction)
+        # Anomalies (collapsed)
+        with st.expander(f"🚨 Anomalies ({len(detect_anomalies(df_filtered))} flagged)"):
+            anomaly_df = detect_anomalies(df_filtered)
+            if len(anomaly_df) > 0:
+                anomaly_show = add_display_names(anomaly_df)[
+                    ['timestamp', 'merchant_display', 'amount', 'category', 'confidence', 'flag_reason']
+                ].rename(columns={'merchant_display': 'Merchant'})
+                st.dataframe(
+                    anomaly_show.sort_values('amount', ascending=False),
+                    use_container_width=True, hide_index=True,
+                )
             else:
-                cat_monthly = df_monthly[df_monthly['category'] == cat]['amount'].sum()
-                cat_months = len(df_monthly['month'].unique())
-                adjusted_monthly_spend += (cat_monthly / max(cat_months, 1)) if cat_months > 0 else 0
+                st.info("No anomalies in current filter range.")
 
-        adjusted_projected_spend = ytd_spend + (adjusted_monthly_spend * remaining_months)
-        annual_income = budget_config['income'] * 12
-        adjusted_projected_savings = annual_income - adjusted_projected_spend
-
-        # Difference from goal
-        savings_goal = budget_config['saving_goal_annual']
-
-        # Display bars
-        fig_savings_calc = go.Figure()
-
-        fig_savings_calc.add_trace(go.Bar(
-            y=['Current\nTrajectory'],
-            x=[baseline_projected],
-            orientation='h',
-            marker=dict(color='#636EFA'),
-            name='Current',
-            text=f"¥{baseline_projected:.0f}",
-            textposition='auto',
-            showlegend=False
-        ))
-
-        fig_savings_calc.add_trace(go.Bar(
-            y=['With Cuts\nApplied'],
-            x=[adjusted_projected_savings],
-            orientation='h',
-            marker=dict(color='#00CC96'),
-            name='Adjusted',
-            text=f"¥{adjusted_projected_savings:.0f}",
-            textposition='auto',
-            showlegend=False
-        ))
-
-        fig_savings_calc.add_vline(
-            x=savings_goal,
-            line_dash='dash',
-            line_color='#FFA15A',
-            annotation_text=f"Goal: ¥{savings_goal:.0f}",
-            annotation_position='top right'
-        )
-
-        fig_savings_calc.update_layout(
-            title='Year-End Savings Projection',
-            xaxis_title='Savings (¥)',
-            height=300,
-            margin=dict(l=0, r=0, t=30, b=0)
-        )
-        st.plotly_chart(fig_savings_calc, use_container_width=True)
-
-        # Calculate total cut needed
-        total_cut_needed = max(0, savings_goal - adjusted_projected_savings)
-        total_cut_monthly = total_cut_needed / remaining_months if remaining_months > 0 else 0
-
-        if total_cut_needed > 0:
-            st.warning(f"**To hit your ¥{savings_goal:.0f} goal:** Need to cut ¥{total_cut_needed:.0f} total (¥{total_cut_monthly:.0f}/month more)")
-        else:
-            st.success(f"✅ **On track!** Projected to exceed goal by ¥{-total_cut_needed:.0f}")
-
-    st.divider()
-
-    # Feature 4: Investment Readiness Indicator
-    st.markdown("## 4️⃣ Investment Readiness Indicator")
-    st.markdown("Have you consistently hit your ¥600/month savings goal?")
-
-    # Check last 3 months
-    last_3_months = sorted(df_monthly['month'].unique())[-3:]
-    months_met_goal = 0
-    month_details = []
-
-    for month in last_3_months:
-        month_df = df_monthly[df_monthly['month'] == month]
-        month_spend = month_df['amount'].sum()
-        month_savings = budget_config['income'] - month_spend
-        goal_met = month_savings >= budget_config['saving_goal_monthly']
-
-        months_met_goal += int(goal_met)
-        month_details.append({
-            'month': str(month),
-            'savings': month_savings,
-            'met_goal': '✅' if goal_met else '❌'
-        })
-
-    months_df = pd.DataFrame(month_details)
-    st.dataframe(months_df, use_container_width=True, hide_index=True)
-
-    col1, col2 = st.columns([1, 1])
-
-    with col1:
-        if months_met_goal == 3:
-            st.success(f"### 🎯 Ready to Invest!")
-            avg_surplus = (sum([budget_config['income'] - df_monthly[df_monthly['month'] == m]['amount'].sum() for m in last_3_months]) / 3)
-            st.markdown(f"**You've met your ¥600 savings goal for 3 consecutive months.**\n\n"
-                       f"Average monthly surplus: **¥{avg_surplus:.0f}**\n\n"
-                       f"You may want to consider investing this surplus to build long-term wealth. "
-                       f"(Consult with a financial advisor for guidance on investment options.)")
-        else:
-            st.info(f"### ⏳ Keep Going")
-            st.markdown(f"**Progress: {months_met_goal} of 3 months met ¥600 goal**\n\n"
-                       f"You're on a good path. Keep cutting unnecessary expenses to consistently hit your savings target.")
-
-    with col2:
-        st.markdown("### Why This Matters")
-        st.markdown(
-            "Investing allows your money to grow through compound returns. Once you've proven you can "
-            "consistently save ¥600/month, those surpluses become capital for long-term investments like:\n\n"
-            "- Index funds (diversified, low-cost)\n"
-            "- Emergency fund expansion (3-6 months expenses)\n"
-            "- Retirement accounts (if available)\n\n"
-            "_This is NOT financial advice — consult a professional._"
-        )
-
-
-# Footer
-st.divider()
-st.markdown("---")
+# ── Footer ───────────────────────────────────────────────────────────────────
 st.markdown(
-    "📊 **Personal Finance Categorizer** | "
-    "Model: Logistic Regression | "
-    "Accuracy: 97.3% | "
-    "Training data: 748 transactions"
+    '<div class="dash-footer">'
+    'Personal Finance Categorizer · Logistic Regression · 97.3% accuracy'
+    '</div>',
+    unsafe_allow_html=True,
 )

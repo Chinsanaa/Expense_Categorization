@@ -86,12 +86,14 @@ def show_labeling_stats(df: pd.DataFrame) -> None:
     # Show 5 random labeled examples
     labeled_df = df[df['labeled'] == True].sample(min(5, len(df[df['labeled'] == True])))
 
-    with open('_labeling_sample.txt', 'w', encoding='utf-8') as f:
+    sample_path = Path('output/samples/_labeling_sample.txt')
+    sample_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(sample_path, 'w', encoding='utf-8') as f:
         for idx, (_, row) in enumerate(labeled_df.iterrows()):
             f.write(f"\n{idx+1}. Merchant: {row['merchant']}\n")
             f.write(f"   Category: {row['category']}\n")
 
-    print("Sample written to _labeling_sample.txt")
+    print(f"Sample written to {sample_path}")
 
 
 def interactive_label(df: pd.DataFrame, output_path: str) -> None:
@@ -173,8 +175,8 @@ if __name__ == '__main__':
     show_labeling_stats(df_labeled)
 
     # Save auto-labeled data
-    df_labeled.to_csv('data/processed/transactions_auto_labeled.csv', index=False)
-    print(f"\nSaved auto-labeled data to data/processed/transactions_auto_labeled.csv")
+    df_labeled.to_csv('data/intermediate/transactions_auto_labeled.csv', index=False)
+    print(f"\nSaved auto-labeled data to data/intermediate/transactions_auto_labeled.csv")
 
     # Optionally run interactive labeling for remaining
     unlabeled_count = (df_labeled['labeled'] == False).sum()

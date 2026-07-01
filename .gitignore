@@ -217,10 +217,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Project-specific temporary files
-_*.txt
-_*.png
-_*.csv
+# Project-generated output (charts, debug samples)
+output/
+
 search_*.csv
 *_candidates*.csv
 *_sample*.csv

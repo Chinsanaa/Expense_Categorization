@@ -3,11 +3,23 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from datetime import datetime
+from pathlib import Path
 import numpy as np
 
+OUTPUT_CHARTS = Path('output/charts')
+OUTPUT_SAMPLES = Path('output/samples')
 
-def monthly_spend_by_category(df, output_path='_chart_monthly_category.png'):
+
+def _ensure_output_dirs():
+    OUTPUT_CHARTS.mkdir(parents=True, exist_ok=True)
+    OUTPUT_SAMPLES.mkdir(parents=True, exist_ok=True)
+
+
+def monthly_spend_by_category(df, output_path=None):
     """Stacked bar chart: monthly spend by category."""
+    _ensure_output_dirs()
+    if output_path is None:
+        output_path = OUTPUT_CHARTS / 'monthly_category.png'
     df = df.copy()
     df['month'] = pd.to_datetime(df['timestamp']).dt.to_period('M')
 
@@ -29,8 +41,11 @@ def monthly_spend_by_category(df, output_path='_chart_monthly_category.png'):
     return fig
 
 
-def top_merchants(df, n=15, output_path='_chart_top_merchants.png'):
+def top_merchants(df, n=15, output_path=None):
     """Bar chart: top merchants by total spend."""
+    _ensure_output_dirs()
+    if output_path is None:
+        output_path = OUTPUT_CHARTS / 'top_merchants.png'
     top = df.groupby('merchant')['amount'].sum().nlargest(n).sort_values()
 
     fig, ax = plt.subplots(figsize=(12, 6))
@@ -46,8 +61,11 @@ def top_merchants(df, n=15, output_path='_chart_top_merchants.png'):
     return fig
 
 
-def cumulative_spend_over_time(df, output_path='_chart_cumulative.png'):
+def cumulative_spend_over_time(df, output_path=None):
     """Line chart: cumulative spending over time."""
+    _ensure_output_dirs()
+    if output_path is None:
+        output_path = OUTPUT_CHARTS / 'cumulative.png'
     df = df.copy()
     df = df.sort_values('timestamp')
     df['cumulative'] = df['amount'].cumsum()
@@ -68,8 +86,11 @@ def cumulative_spend_over_time(df, output_path='_chart_cumulative.png'):
     return fig
 
 
-def category_breakdown(df, output_path='_chart_category_pie.png'):
+def category_breakdown(df, output_path=None):
     """Pie chart: total spending by category."""
+    _ensure_output_dirs()
+    if output_path is None:
+        output_path = OUTPUT_CHARTS / 'category_pie.png'
     category_totals = df.groupby('category')['amount'].sum().sort_values(ascending=False)
 
     fig, ax = plt.subplots(figsize=(10, 8))
@@ -118,7 +139,9 @@ def spending_summary(df):
     category_stats = df.groupby('category')['amount'].agg(['count', 'sum', 'mean'])
     category_stats = category_stats.sort_values('sum', ascending=False)
 
-    with open('_spending_summary.txt', 'w', encoding='utf-8') as f:
+    _ensure_output_dirs()
+    summary_path = OUTPUT_SAMPLES / 'spending_summary.txt'
+    with open(summary_path, 'w', encoding='utf-8') as f:
         f.write("SPENDING SUMMARY\n")
         f.write("="*80 + "\n\n")
         f.write(f"Total spending: CNY {total:,.2f}\n")
@@ -137,7 +160,7 @@ def spending_summary(df):
             avg_cat = row['mean']
             f.write(f"{cat:30s} {count:6d} CNY {total_cat:10,.2f} CNY {avg_cat:10,.2f}\n")
 
-    print("Summary saved to _spending_summary.txt")
+    print(f"Summary saved to {summary_path}")
 
 
 if __name__ == '__main__':
@@ -161,5 +184,5 @@ if __name__ == '__main__':
 
     print(f"\n{'='*70}")
     print("Stage 7 Complete!")
-    print("Charts saved as PNG files in project root")
+    print(f"Charts saved to {OUTPUT_CHARTS}/")
     print("="*70)

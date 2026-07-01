@@ -5,14 +5,15 @@
 
 ## Executive Summary
 
-**Automated transaction categorization system** that classifies 900+ financial transactions from multiple payment sources (Alipay, WeChat Pay) into spending categories using supervised machine learning. Achieves **95.5% accuracy** with production-ready confidence thresholds and an interactive decision-making dashboard.
+**Automated transaction categorization system** that classifies 900+ financial transactions from multiple payment sources (Alipay, WeChat Pay) into spending categories using supervised machine learning. Achieves **96.2% accuracy** (stratified CV) with production-ready confidence thresholds and an interactive decision-making dashboard.
 
 **Key Metrics:**
-- ✅ **95.5% accuracy** (stratified 5-fold cross-validation)
-- ✅ **0.960 F1-weighted** (overall performance)
-- ✅ **0.765 F1-macro** (fairness across all categories)
-- ✅ **90.2% average confidence** (high-confidence predictions)
+- ✅ **96.2% accuracy** (stratified 5-fold cross-validation)
+- ✅ **0.965 F1-weighted** (overall performance)
+- ✅ **0.855 F1-macro** (fairness across all categories)
+- ✅ **99.0% average confidence** (789 merchant rule overrides at 100%; ML-only remainder 91.7%)
 - ✅ **901/901 transactions classified** (100% coverage)
+- ✅ **8 flagged for manual review** (down from 40 pre-Session 13)
 
 ---
 
@@ -52,12 +53,11 @@ Raw Data (CSV Exports)
   • Remove noise, lowercase English
     ↓
 [Stage 3] Rule-Based Pre-Label
-  • 136 merchant rules → 748 auto-labeled transactions
-  • Reduces manual labeling burden by 83%
+  • 172 merchant rules → auto-label during training + post-classification override
     ↓
 [Stage 4] Vectorize
   • TF-IDF feature extraction
-  • 275 most-distinctive tokens
+  • 657 most-distinctive tokens
     ↓
 [Stage 5] Train Classifier
   • Logistic Regression with class balancing
@@ -65,7 +65,7 @@ Raw Data (CSV Exports)
   • Stratified 5-fold cross-validation
     ↓
 [Stage 6] Classify & Score
-  • Predict category + confidence for all transactions
+  • ML prediction + merchant rule overrides + description rules (e.g. NYU POS)
   • Flag low-confidence (<70%) for manual review
     ↓
 [Stage 7] Visualize & Decide
@@ -88,31 +88,54 @@ Raw Data (CSV Exports)
 
 ## Results & Performance
 
-### Accuracy Metrics (Session 8B Audit)
-
-After systematic tuning and honest evaluation, the model achieves:
+### Accuracy Metrics (current — Session 14, July 2026)
 
 | Metric | Value | Status |
 |---|---|---|
-| **Overall Accuracy** | 95.5% | ✅ Production-ready |
-| **F1-weighted** | 0.960 | ✅ Excellent balanced performance |
-| **F1-macro** | 0.765 | ✅ Fair across all categories |
-| **Mean Confidence** | 90.2% | ✅ Well-calibrated |
+| **Overall Accuracy (CV)** | 96.2% | ✅ Production-ready |
+| **F1-weighted** | 0.965 | ✅ Excellent balanced performance |
+| **F1-macro** | 0.855 | ✅ Fair across all categories |
+| **Mean Confidence (all 901)** | 99.0% | ✅ High (789 rule overrides at 100%) |
+| **Mean Confidence (ML-only, 112 rows)** | 91.7% | ✅ Remaining edge cases |
+| **Needs Manual Review** | 8 / 901 | ✅ Down from 40 |
 | **Transactions Classified** | 901/901 | ✅ 100% coverage |
+| **`???` placeholder category** | 0 | ✅ Resolved (Session 14) |
 
-**Per-Category Performance:**
+**Per-Category Performance (863 labeled training samples, last retrain):**
 
-| Category | Precision | Recall | F1 | Samples |
+| Category | Precision | Recall | F1 | Training Samples |
 |---|---|---|---|---|
-| Transportation | 99.4% | 100.0% | **1.000** | 175 |
-| Eating Out | 91.9% | 99.3% | **0.955** | 426 |
-| Groceries | 99.0% | 98.5% | **0.988** | 223 |
-| Shopping | 97.6% | 78.4% | **0.870** | 50 |
-| Transfers & Gifts | 90.5% | 95.0% | **0.927** | 27 |
-| Other | 100% | 100% | **1.000** | 0 |
-| Utilities & Services | 100% | 100% | **1.000** | 0 |
+| Transportation | 100% | 100% | **1.000** | 169 |
+| Eating Out | 100% | 98% | **0.992** | 330 |
+| Groceries | 100% | 99% | **0.994** | 269 |
+| Shopping | 96% | 98% | **0.973** | 55 |
+| Transfers & Gifts | 91% | 95% | **0.933** | 22 |
+| Other | 65% | 100% | **0.786** | 11 |
+| Utilities & Services | 100% | 100% | **1.000** | 5 |
 
-### Key Improvements (Sessions 1-10)
+**Live classification distribution (901 transactions):**
+
+| Category | Count | % of Spend | Avg Confidence |
+|---|---|---|---|
+| Eating Out | 359 | 41.1% | 98.6% |
+| Shopping | 56 | 15.7% | 98.7% |
+| Groceries | 272 | 13.8% | 99.2% |
+| Transportation | 169 | 10.0% | 100% |
+| Other | 11 | 8.9% | 90.5% |
+| Transfers & Gifts | 26 | 8.4% | 99.6% |
+| Utilities & Services | 5 | 0.4% | 100% |
+
+### Key Improvements (Recent Sessions)
+
+**Session 14: Catering, HEYTEA, anomaly cleanup**
+- Fixed all `???` placeholder rules (12 → 0); catering/`餐饮` → Eating Out
+- Added `喜茶` (HEYTEA) rule; La Baraka confirmed Eating Out
+- Mean confidence **93.8% → 99.0%**; manual review **40 → 8**
+
+**Session 13: Manual Other-Bucket Review + Rule Overrides**
+- User corrected 17 misclassified "Other" transactions (restaurants, groceries, gifts)
+- Expanded merchant rules; `classify.py` post-classification overrides
+- Retrained (96.2% CV accuracy); **Other bucket 31 → 11**
 
 **Session 6: Discovered & Fixed Accuracy Reporting**
 - Initial 99.1% was misleading (single train/test split)
@@ -137,15 +160,16 @@ After systematic tuning and honest evaluation, the model achieves:
   - Eliminated false positives: 100+ flagged transactions → ~5
 - **Result**: Dashboard went from tracking past spending to prescribing future actions
 
-### Spending Breakdown
+### Spending Breakdown (901 transactions, ¥23,895 total)
 
-| Category | % of Total | Avg Confidence | Monthly Average |
-|---|---|---|---|
-| Eating Out | 47.3% | 80.0% | ¥1,266 |
-| Groceries | 24.8% | 85.3% | ¥664 |
-| Transportation | 19.4% | 85.2% | ¥518 |
-| Shopping | 5.5% | 75.0% | ¥147 |
-| Transfers & Gifts | 3.0% | 59.1% | ¥80 |
+| Category | % of Total Spend | Avg Confidence |
+|---|---|---|
+| Eating Out | 41.1% | 98.6% |
+| Shopping | 15.7% | 98.7% |
+| Groceries | 13.8% | 99.2% |
+| Transportation | 10.0% | 100% |
+| Other | 8.9% | 90.5% |
+| Transfers & Gifts | 8.4% | 99.6% |
 
 ---
 
@@ -192,7 +216,7 @@ After systematic tuning and honest evaluation, the model achieves:
 | Interpretability | ✅ Can see which tokens matter | ❌ Black box |
 | Data needed | 200-500 samples | 10,000+ samples |
 | Production stability | ✅ No randomness | ⚠️ Requires careful seeding |
-| Accuracy on this task | 95.5% | ~96.5% (marginal gain) |
+| Accuracy on this task | 96.2% | ~96.5% (marginal gain) |
 | Maintenance burden | Low | High |
 
 **Decision**: Logistic Regression wins on simplicity, speed, and interpretability with acceptable accuracy trade-off.
@@ -255,14 +279,16 @@ streamlit run src/dashboard.py
 import pandas as pd
 import joblib
 from src.classify import classify_all
+from src.label import load_merchant_rules
 
-# Load trained models
+# Load trained models and merchant rules
 classifier = joblib.load('data/processed/classifier.pkl')
 vectorizer = joblib.load('data/processed/tfidf_vectorizer.pkl')
+rules = load_merchant_rules('data/labeled/merchant_rules_expanded.csv')
 
-# Classify new transactions
+# Classify new transactions (ML + rule overrides)
 df_new = pd.read_csv('new_transactions.csv')
-df_classified = classify_all(df_new, vectorizer, classifier)
+df_classified = classify_all(df_new, vectorizer, classifier, rules=rules)
 
 # View results (includes confidence scores)
 print(df_classified[['merchant', 'description', 'category', 'confidence']])
@@ -280,7 +306,7 @@ python3 src/find_other_candidates.py
 
 # 3. Retrain the model
 python3 src/retrain.py
-# Output: TRAINING_REPORT.txt (detailed metrics)
+# Output: data/reports/TRAINING_REPORT.txt (detailed metrics)
 
 # 4. Reclassify all transactions
 python3 src/classify.py
@@ -292,36 +318,46 @@ python3 src/classify.py
 
 ```
 financing/
-├── data/
-│   ├── raw/                          # Original exports (Alipay CSV, WeChat Excel)
-│   ├── processed/
-│   │   ├── transactions.csv          # Normalized 901 transactions
-│   │   ├── transactions_classified.csv # Final predictions + confidence
-│   │   ├── classifier.pkl            # Trained model
-│   │   └── tfidf_vectorizer.pkl      # Feature vectorizer
-│   └── labeled/
-│       ├── merchant_rules_expanded.csv    # 136 pre-labeling rules
-│       └── labeled_transactions.csv       # 544 training examples
-│
-├── src/
-│   ├── parse.py                  # Stage 1: Parse CSV/Excel → normalized schema
-│   ├── segment.py                # Stage 2 & 4: Tokenization + TF-IDF vectorization
-│   ├── label.py                  # Stage 3: Rule-based pre-labeling
-│   ├── train.py                  # Stage 5: Train classifier with CV evaluation
-│   ├── classify.py               # Stage 6: Predict categories + confidence
-│   ├── visualize.py              # Stage 7: Generate spending charts
-│   ├── retrain.py                # Automated retraining pipeline
-│   ├── find_other_candidates.py  # Surface ambiguous transactions
-│   └── dashboard.py              # Interactive Streamlit dashboard
-│
-├── docs/
-│   ├── AUDIT_REPORT.md          # Full technical audit (Session 6)
-│   └── TECHNICAL_NOTES.md       # Implementation details
-│
-├── context.md                    # Project memory (decisions, sessions, next steps)
-├── CLAUDE.md                     # User collaboration guidelines
+├── README.md                 # This file
+├── CLAUDE.md                 # Collaboration guidelines
+├── context.md                # Session log and project memory
 ├── requirements.txt
-└── README.md
+│
+├── data/
+│   ├── raw/                  # Original exports (Alipay CSV, WeChat Excel) — do not edit
+│   ├── labeled/
+│   │   ├── merchant_rules_expanded.csv   # 172 merchant rules
+│   │   └── labeled_transactions.csv      # 863 training examples
+│   ├── processed/            # Pipeline outputs (used by dashboard)
+│   │   ├── transactions.csv
+│   │   ├── transactions_classified.csv
+│   │   ├── needs_manual_review.csv
+│   │   ├── classifier.pkl
+│   │   └── tfidf_vectorizer.pkl
+│   ├── intermediate/         # Stage artifacts (cleaned text, auto-labeled)
+│   ├── exports/              # Excel review files for manual checks
+│   ├── reports/              # TRAINING_REPORT.txt from retrain.py
+│   └── budget_config.json
+│
+├── output/                   # Generated charts & debug samples (gitignored)
+│   ├── charts/
+│   └── samples/
+│
+├── src/                      # Active pipeline scripts
+│   ├── parse.py              # Stage 1: Parse CSV/Excel
+│   ├── segment.py            # Stage 2 & 4: Tokenization + TF-IDF
+│   ├── label.py              # Stage 3: Rule-based pre-labeling
+│   ├── train.py              # Stage 5: Train classifier
+│   ├── classify.py           # Stage 6: Predict + confidence
+│   ├── retrain.py            # Automated retraining
+│   ├── visualize.py          # Stage 7: Static charts
+│   ├── dashboard.py          # Streamlit dashboard
+│   ├── dashboard_helpers.py
+│   ├── merchant_display.py
+│   ├── forecast.py
+│   └── find_other_candidates.py
+│
+└── _archive/                 # Old experiments, one-off scripts, backups
 ```
 
 ---
@@ -334,11 +370,11 @@ Seamlessly combines Alipay CSV and WeChat Excel exports into a unified schema, h
 ### 2. **Mixed-Language NLP**
 Correctly tokenizes Chinese + English text using jieba segmentation. Prevents the common pitfall of applying English tokenizers to Chinese (which would fail to segment).
 
-### 3. **Rule-Based Pre-Labeling**
-136 merchant rules automatically label 748 transactions (83% of dataset), reducing manual labeling burden while improving training data quality.
+### 3. **Rule-Based Pre-Labeling + Post-Classification Overrides**
+172 merchant rules auto-label training data and override ML predictions at inference time (789/901 transactions matched). Description rules handle edge cases (e.g. NYU cafeteria POS → Eating Out, catering/餐饮 → Eating Out).
 
 ### 4. **Production-Ready Confidence Thresholds**
-Well-calibrated confidence scores enable safe auto-classification (≥80%), manual review (70-79%), or rejection (<70%) strategies.
+Well-calibrated confidence scores with a two-layer strategy: merchant rules set confidence to 100% on match; remaining ML predictions flagged below 70% for manual review (currently **8 items**).
 
 ### 5. **Fairness-Aware Model Training**
 Class weighting ensures minority spending categories (Transfers, Shopping) are learned equally well, not ignored in favor of majority categories.
@@ -480,4 +516,4 @@ Open source (MIT License)
 
 For questions about the implementation or technical decisions, see `context.md` for detailed session logs and decision rationale.
 
-**Last Updated:** Session 10 (2026-07-01)
+**Last Updated:** Session 14 (2026-07-01)

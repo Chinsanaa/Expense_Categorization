@@ -78,9 +78,21 @@ not the right primary tool:
 
 ## Next Suggested Step
 
-Get a sample (even anonymized/few rows) of both the Alipay and WeChat CSV
-exports so the parser in Step 1 can be built against real column structures
-instead of assumptions.
+Label the **8** remaining low-confidence items in `needs_manual_review.csv` (达美乐, 蜜雪冰城, 杜福睿, 7-ELEVEN, 好德, etc.), then retrain. Optionally review the 11 genuine "Other" transactions (visa fees, tuition, travel clinic).
+
+## Current Production Metrics (Session 14, 2026-07-01)
+
+| Metric | Value |
+|---|---|
+| CV accuracy | **96.2%** |
+| F1-weighted / F1-macro | **0.965 / 0.855** |
+| Mean confidence (901 txns) | **99.0%** |
+| ML-only confidence (112 txns) | **91.7%** |
+| Manual review queue | **8** (was 40) |
+| Rule overrides at 100% conf | **789 / 901** |
+| Labeled training samples | **863** |
+| Merchant rules (unique) | **172** |
+| `???` placeholder category | **0** |
 
 ## Session Log
 
@@ -787,5 +799,124 @@ All detailed documentation has been integrated below. Original files served spec
 - Original README.md: 275 lines, comprehensive but dated (97.3% accuracy outdated)
 - Original context.md: 681 lines, complete session history
 - Supporting docs: 5-7 specialized files, each with overlapping information about audits, workflows, decisions
-- **Result:** 8+ files with repetition, confusing prioritization for new readers
-- **Solution:** Integrate key findings into context.md session log, keep README.md for quick reference, delete intermediate docs
+
+---
+
+### Session 10 (2026-07-01) — Dashboard Visual Redesign
+
+**What changed:**
+- Rebuilt `src/dashboard.py` around user preferences: 3 priority tabs (Spending Overview, Budget Tracking, Action Plan), sidebar removed, filters in collapsible expander
+- Added `.streamlit/config.toml` for native dark theme (purple accent, clean backgrounds)
+- Custom CSS: KPI card grid (5 metrics, responsive 5→3→2 columns), hidden sidebar, section headers
+- Five headline KPIs: total spend & trend, budget status, monthly vs forecast, largest category, savings potential
+- Chart variety per tab: area line, donut, stacked bar, cumulative line, horizontal bars, heatmap, pie, progress bars
+- Merged old 8 tabs into 3: merchants/anomalies/monthly/forecast/savings folded into appropriate priority tabs
+- Added `apply_chart_theme()` and `CHART_COLORS` to `dashboard_helpers.py` for consistent Plotly dark styling
+
+**Decisions:**
+- Per-category budget number inputs removed from sidebar (used `budget_config.json` instead — less clutter)
+- Anomalies moved to expander inside Action Plan tab (secondary, not primary workflow)
+
+**Launch:** `python -m streamlit run src/dashboard.py`
+
+**Next suggested step:** User review of visual layout; tweak colors/spacing based on feedback
+
+---
+
+### Session 11 (2026-07-01) — Fix Parse: Restore 901 Transactions
+
+**Problem:** Dashboard showed 658 transactions because `transactions.csv` only contained WeChat data. Alipay (243 rows) was dropped when `parse.py` used a hardcoded path on another machine (`C:\Users\User\...`).
+
+**What changed:**
+- `parse.py` now resolves files from `data/raw/` via `resolve_raw_paths()` (alipay.csv, raw-wechat.xlsx)
+- Added native Chinese Alipay parser with auto-detection of header row + encoding (GBK/UTF-8)
+- English-translated Alipay format still supported via `parse_alipay_english()`
+- Re-ran parse + classify: **901 transactions** (243 Alipay + 658 WeChat), ¥23,895 total
+
+**Launch:** Re-run `python src/parse.py` after dropping new exports into `data/raw/`
+
+---
+
+### Session 12 — Saving & Investing categories (¥0 until next semester)
+
+**What changed:**
+- `budget_config.json`: **Saving** reset from ¥600/mo to **¥0**; new **Investing** category at **¥0**
+- Dashboard budget row: 9 cards (7 spend + Saving + Investing), zero-budget cards show "Not started / Starts next semester"
+- `dashboard_helpers.py`: mapping entries for Saving & Investing
+
+**Note:** No payment-app transactions for these yet — when you start next semester, update monthly budgets in `budget_config.json` and label any new transaction types for the classifier.
+
+---
+
+### Session 13 (2026-07-01) — Manual relabels for Other bucket + merchant rule overrides
+
+**Problem:** 31 transactions landed in "Other" — many were misclassified restaurants, groceries, and shopping (model fallback when uncertain). Mean confidence was 93.8%; 40 items flagged for manual review.
+
+**User corrections (17 transactions):**
+- Eating Out: AMINO AMIGO, 蘇小柳, 必胜客, 小满手工粉, 霸王茶姬, NYU POS cafeteria
+- Groceries: KKV, K-MART, 中石化易捷便利店, 聆动 (pads)
+- Shopping: 绿联**店, wa**店 (Taobao)
+- Transfers & Gifts: JUNGLEplus (gift for friend)
+
+**What changed:**
+- `labeled_transactions.csv`: 861 labeled rows (+2 Taobao rows added)
+- `merchant_rules_expanded.csv`: 169 unique rules / 174 patterns (+Chinese patterns, KKV→Groceries, JUNGLEplus→Transfers & Gifts)
+- `classify.py`: merchant rule overrides after ML + NYU POS description rule
+- Retrained model (96.2% CV accuracy, 0.855 F1-macro, 657 TF-IDF features)
+- Reclassified all 901 transactions
+
+**Results:**
+
+| Metric | Before (Session 13 start) | After (Session 14) |
+|---|---|---|
+| Mean confidence (all 901) | 93.8% | **99.0%** |
+| Needs manual review (<0.70) | 40 | **8** |
+| Other bucket size | 31 | **11** |
+| Transfers & Gifts | 27 | **26** |
+| Rule overrides (conf=1.0) | 0 | **789** |
+| Training samples | 850 | **863** |
+| `???` category | 12 | **0** |
+
+**Files updated:** `labeled_transactions.csv`, `merchant_rules_expanded.csv`, `classify.py`, `transactions_classified.csv`, `needs_manual_review.csv`, `other_and_transfers_review.xlsx`, `classifier.pkl`, `tfidf_vectorizer.pkl`, `TRAINING_REPORT.txt`, `README.md`, `context.md`
+
+**Known issue:** ~~12 transactions classified as `???`~~ **Fixed in Session 14.**
+
+**Next suggested step:** Label the **8** low-confidence items (达美乐, 蜜雪冰城, 杜福睿, 7-ELEVEN, 好德, etc.); retrain to fold in 喜茶 labels.
+
+---
+
+### Session 14 (2026-07-01) — Catering → Eating Out + anomaly cleanup
+
+**Problem:** 12 transactions classified as `???` (placeholder merchant rules). Catering companies (上海饱猫餐饮, 卓联餐饮, etc.) appeared as anomalies under a bogus category.
+
+**What changed:**
+- Fixed all Catering/`餐饮` merchant rules → **Eating Out** (7 English + 2 Chinese company names)
+- Resolved remaining `???` rules: transport cards, APIO groceries, floating kitchen, LA BARAKA, Taobao shopping
+- Added catch-all patterns: `餐饮`, `catering` → Eating Out
+- `classify.py`: merchant name override for catering/餐饮
+- `dashboard.py`: `normalize_categories()` on load; `detect_anomalies()` skips `???` category
+
+**Results:** `???` category **12 → 0**; all catering merchants → Eating Out; anomalies no longer include uncategorized bucket
+
+---
+
+### Session 14b — HEYTEA (喜茶) + La Baraka labels
+
+- **喜茶** (HEYTEA): was Groceries at 49% confidence — added `喜茶` merchant rule → **Eating Out** (2 direct transactions fixed)
+- **LA BARAKA UV**: already **Eating Out** from Session 14 rule fix
+- Manual review queue: **10 → 8**; mean confidence **98.9% → 99.0%**
+
+---
+
+### Session 15 (2026-07-01) — Folder cleanup
+
+**Problem:** Root directory cluttered with `_chart_*.png`, `_*.txt`, `TRAINING_REPORT.txt`; intermediate pipeline CSVs mixed with final outputs in `data/processed/`.
+
+**New layout:**
+- `output/charts/` + `output/samples/` — generated PNGs and debug text (gitignored)
+- `data/intermediate/` — `transactions_cleaned.csv`, `transactions_auto_labeled.csv`
+- `data/exports/` — `other_and_transfers_review.xlsx`
+- `data/reports/` — `TRAINING_REPORT.txt`
+- `_archive/fix_labels.py` — moved one-off script out of `src/`
+
+**Updated paths in:** `visualize.py`, `segment.py`, `label.py`, `retrain.py`, `classify.py`, `README.md`, `CLAUDE.md`, `.gitignore`

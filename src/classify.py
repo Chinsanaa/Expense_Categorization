@@ -6,13 +6,34 @@ import sys
 sys.path.insert(0, str(Path.cwd()))
 
 from segment import clean_text, vectorize
+from label import load_merchant_rules, apply_merchant_rules
 
 
-def classify_all(df, vectorizer, classifier, confidence_threshold=0.7):
+def apply_description_overrides(df: pd.DataFrame) -> pd.DataFrame:
+    """Override categories using merchant/description patterns."""
+    df = df.copy()
+    for idx, row in df.iterrows():
+        merchant = str(row['merchant'])
+        desc = str(row['description']).lower()
+        merchant_lower = merchant.lower()
+
+        if merchant == '上海纽约大学' and 'pos' in desc:
+            df.loc[idx, 'category'] = 'Eating Out'
+            df.loc[idx, 'confidence'] = 1.0
+            df.loc[idx, 'needs_review'] = False
+        elif 'catering' in merchant_lower or '餐饮' in merchant:
+            df.loc[idx, 'category'] = 'Eating Out'
+            df.loc[idx, 'confidence'] = 1.0
+            df.loc[idx, 'needs_review'] = False
+    return df
+
+
+def classify_all(df, vectorizer, classifier, confidence_threshold=0.7, rules=None):
     """Classify all transactions using trained model.
 
     Args:
         confidence_threshold: Flag predictions below this threshold for manual review (default 0.7)
+        rules: Optional merchant rules dict; when provided, overrides ML predictions on match
     """
     # Clean text
     df = df.copy()
@@ -32,6 +53,15 @@ def classify_all(df, vectorizer, classifier, confidence_threshold=0.7):
     df['confidence'] = probabilities
     df['needs_review'] = probabilities < confidence_threshold
 
+    if rules:
+        ruled = apply_merchant_rules(df, rules)
+        matched = ruled['labeled'] == True
+        df.loc[matched, 'category'] = ruled.loc[matched, 'category']
+        df.loc[matched, 'confidence'] = 1.0
+        df.loc[matched, 'needs_review'] = False
+
+    df = apply_description_overrides(df)
+
     return df
 
 
@@ -44,13 +74,15 @@ if __name__ == '__main__':
     df = pd.read_csv('data/processed/transactions.csv')
     vectorizer = joblib.load('data/processed/tfidf_vectorizer.pkl')
     classifier = joblib.load('data/processed/classifier.pkl')
+    rules = load_merchant_rules('data/labeled/merchant_rules_expanded.csv')
 
     print(f"\n1. Loaded {len(df)} transactions")
-    print(f"2. Loaded trained classifier (99.1% accuracy)")
+    print(f"2. Loaded trained classifier (96.2% CV accuracy)")
+    print(f"3. Loaded {len(rules)} merchant rules for post-classification overrides")
 
     # Classify
-    print(f"\n3. Classifying all transactions...")
-    df_classified = classify_all(df, vectorizer, classifier)
+    print(f"\n4. Classifying all transactions...")
+    df_classified = classify_all(df, vectorizer, classifier, rules=rules)
 
     # Show stats
     print(f"\n4. CLASSIFICATION RESULTS:")
@@ -92,13 +124,15 @@ if __name__ == '__main__':
     print(f"\n7. SAMPLE CLASSIFIED TRANSACTIONS:")
     sample_df = df_classified[['merchant', 'description', 'amount', 'category', 'confidence']].head(10)
 
-    with open('_stage6_sample.txt', 'w', encoding='utf-8') as f:
+    sample_path = Path('output/samples/_stage6_sample.txt')
+    sample_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(sample_path, 'w', encoding='utf-8') as f:
         f.write("CLASSIFIED TRANSACTIONS SAMPLE\n")
         f.write("="*80 + "\n\n")
         for idx, (_, row) in enumerate(sample_df.iterrows()):
             f.write(f"{idx+1}. {row['merchant'][:40]:40s} | {row['category']:20s} | {row['confidence']:.1%}\n")
 
-    print("Sample saved to _stage6_sample.txt")
+    print(f"Sample saved to {sample_path}")
 
     print(f"\n{'='*70}")
     print(f"Stage 6 Complete! All {len(df_classified)} transactions classified")

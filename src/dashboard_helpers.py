@@ -4,15 +4,21 @@ Helper functions for dashboard: category mapping, budget lookups, etc.
 import json
 import pandas as pd
 
-# Map our 5 classified categories to budget's 11 categories
+# Map classified transaction categories to budget categories
 CATEGORY_MAPPING = {
     'Eating Out': 'Eating Out',
     'Groceries': 'Groceries',
     'Transportation': 'Transportation',
     'Shopping': 'Shopping',
     'Transfers & Gifts': 'Transfers & Gifts',
-    # Unmapped categories in budget (not yet in our data):
-    # 'Other', 'Entertainment', 'Health & Wellness', 'Travel', 'Utilities & Services', 'Saving'
+    'Other': 'Other',
+    'Utilities & Services': 'Utilities & Services',
+    'Saving': 'Saving',
+    'Investing': 'Investing',
+    # Budget-only until next semester (no payment-app transactions yet):
+    # 'Saving', 'Investing'
+    # In classified data but not yet mapped to budget:
+    # 'Travel', 'Health & Wellness', 'Entertainment'
 }
 
 # Color map for category types
@@ -26,6 +32,29 @@ RISK_COLORS = {
     'Medium': '#FFA15A',  # Orange
     'High': '#EF553B',   # Red
 }
+
+# Dark-theme chart palette
+CHART_COLORS = [
+    '#7c6af7', '#4fc3f7', '#2ecc71', '#f39c12',
+    '#e74c3c', '#9b59b6', '#1abc9c', '#e67e22',
+]
+
+PLOTLY_LAYOUT = dict(
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)',
+    font=dict(color='#c8cdd3', size=13),
+    colorway=CHART_COLORS,
+    margin=dict(l=16, r=16, t=48, b=16),
+    legend=dict(bgcolor='rgba(0,0,0,0)', borderwidth=0),
+    xaxis=dict(gridcolor='rgba(255,255,255,0.06)', zerolinecolor='rgba(255,255,255,0.1)'),
+    yaxis=dict(gridcolor='rgba(255,255,255,0.06)', zerolinecolor='rgba(255,255,255,0.1)'),
+)
+
+
+def apply_chart_theme(fig, height=400):
+    """Apply consistent dark-theme styling to a Plotly figure."""
+    fig.update_layout(**PLOTLY_LAYOUT, height=height)
+    return fig
 
 
 def load_budget_config(path='data/budget_config.json'):

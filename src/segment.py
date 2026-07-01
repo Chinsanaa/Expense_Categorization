@@ -166,8 +166,8 @@ if __name__ == '__main__':
             f.write(f"   Cleaned: {cleaned[:70]}\n")
 
     # Save cleaned data
-    df_clean.to_csv('data/processed/transactions_cleaned.csv', index=False)
-    print(f"\n\nSaved cleaned data to data/processed/transactions_cleaned.csv")
+    df_clean.to_csv('data/intermediate/transactions_cleaned.csv', index=False)
+    print(f"\n\nSaved cleaned data to data/intermediate/transactions_cleaned.csv")
 
     # Test Stage 4: Tokenization
     print("\n" + "="*70)
